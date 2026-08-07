@@ -1,0 +1,18 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{block "title" .}}gitvoice{{end}}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar no-print">
+  <a class="brand" href="/">gitvoice</a>
+  <nav><a href="/customers">Customers</a> <a href="/settings">Settings</a> <a class="button" href="/invoices/new">New invoice</a></nav>
+</header>
+<main>
+{{block "content" .}}{{end}}
+</main>
+</body>
+</html>{{end}}

@@ -1,0 +1,24 @@
+{{define "title"}}Invoices – gitvoice{{end}}
+{{define "content"}}
+<h1>Invoices</h1>
+{{if .Invoices}}
+<table>
+  <thead>
+    <tr><th>Number</th><th>Date</th><th>Customer</th><th>Status</th><th class="num">Total</th></tr>
+  </thead>
+  <tbody>
+    {{range .Invoices}}
+    <tr>
+      <td><a href="/invoices/{{.Number}}">{{.Number}}</a></td>
+      <td>{{.Date}}</td>
+      <td>{{.Customer.DisplayName}}</td>
+      <td><span class="status status-{{.Status}}">{{.Status}}</span></td>
+      <td class="num">{{money .TotalCents}} {{.Currency}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<p class="empty">No invoices yet. <a href="/invoices/new">Create the first one.</a></p>
+{{end}}
+{{end}}

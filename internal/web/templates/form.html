@@ -1,0 +1,122 @@
+{{define "title"}}{{if .IsNew}}New invoice{{else}}Edit {{.Invoice.Number}}{{end}} – gitvoice{{end}}
+{{define "content"}}
+<h1>{{if .IsNew}}New invoice{{else}}Edit invoice {{.Invoice.Number}}{{end}}</h1>
+
+{{if .Error}}<div class="error">{{nl2br .Error}}</div>{{end}}
+
+<form method="post" action="{{.Action}}" class="invoice-form">
+  <fieldset>
+    <legend>Invoice</legend>
+    <div class="grid">
+      <label>Number <input name="number" value="{{.Invoice.Number}}" required></label>
+      <label>Date <input type="date" name="date" value="{{.Invoice.Date}}" required></label>
+      <label>Due date <input type="date" name="due_date" value="{{.Invoice.DueDate}}"></label>
+      <label>Status
+        <select name="status">
+          {{$current := .Invoice.Status}}
+          {{range .Statuses}}<option value="{{.}}" {{if eq . $current}}selected{{end}}>{{.}}</option>{{end}}
+        </select>
+      </label>
+      <label>Currency <input name="currency" value="{{.Invoice.Currency}}" required></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Tax</legend>
+    <label class="check">
+      <input type="checkbox" name="small_business" {{if .Invoice.SmallBusiness}}checked{{end}}>
+      Kleinunternehmerregelung (§ 19 UStG) — no VAT on this invoice
+    </label>
+    <div class="grid">
+      <label>VAT rate % (ignored when § 19 UStG is checked)
+        <input name="tax_rate" value="{{qty .Invoice.TaxRatePercent}}" inputmode="decimal">
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Customer</legend>
+    {{if .Customers}}
+    <label>Load from customers
+      <select id="customer-select">
+        <option value="">— select a customer —</option>
+        {{range .Customers}}
+        <option value="{{.ID}}" data-company="{{.Company}}" data-first-name="{{.FirstName}}"
+                data-last-name="{{.LastName}}" data-address="{{.Address}}"
+                data-email="{{.Email}}" data-vat-id="{{.VATID}}">{{.DisplayName}} ({{.ID}})</option>
+        {{end}}
+      </select>
+    </label>
+    <p class="hint">Selecting fills the fields below; the invoice stores its own copy.</p>
+    {{end}}
+    <div class="grid">
+      <label>Company <input name="customer_company" value="{{.Invoice.Customer.Company}}"></label>
+      <label>First name <input name="customer_first_name" value="{{.Invoice.Customer.FirstName}}"></label>
+      <label>Last name <input name="customer_last_name" value="{{.Invoice.Customer.LastName}}"></label>
+    </div>
+    <p class="hint">Company or last name is required.</p>
+    <div class="grid">
+      <label>Email <input type="email" name="customer_email" value="{{.Invoice.Customer.Email}}"></label>
+      <label>VAT ID (USt-IdNr.) <input name="customer_vat_id" value="{{.Invoice.Customer.VATID}}"></label>
+    </div>
+    <label>Address <textarea name="customer_address" rows="3">{{.Invoice.Customer.Address}}</textarea></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Items</legend>
+    <table id="items">
+      <thead>
+        <tr><th>Description</th><th>Qty</th><th>Unit price</th></tr>
+      </thead>
+      <tbody>
+        {{range .Invoice.Items}}
+        <tr>
+          <td><input name="item_description" value="{{.Description}}"></td>
+          <td><input name="item_quantity" value="{{qty .Quantity}}" inputmode="decimal"></td>
+          <td><input name="item_price" value="{{money .UnitPriceCents}}" inputmode="decimal"></td>
+        </tr>
+        {{end}}
+        <tr>
+          <td><input name="item_description"></td>
+          <td><input name="item_quantity" inputmode="decimal"></td>
+          <td><input name="item_price" inputmode="decimal"></td>
+        </tr>
+      </tbody>
+    </table>
+    <button type="button" class="button" id="add-item">Add item</button>
+    <p class="hint">Rows with an empty description are ignored.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Notes</legend>
+    <textarea name="notes" rows="3">{{.Invoice.Notes}}</textarea>
+  </fieldset>
+
+  <div class="actions">
+    <button class="button primary" type="submit">Save</button>
+    <a href="{{if .IsNew}}/{{else}}/invoices/{{.Invoice.Number}}{{end}}">Cancel</a>
+  </div>
+</form>
+
+<script>
+var customerSelect = document.getElementById('customer-select');
+if (customerSelect) {
+  customerSelect.addEventListener('change', function () {
+    var o = this.selectedOptions[0];
+    if (!o || !o.value) return;
+    document.querySelector('[name=customer_company]').value = o.dataset.company;
+    document.querySelector('[name=customer_first_name]').value = o.dataset.firstName;
+    document.querySelector('[name=customer_last_name]').value = o.dataset.lastName;
+    document.querySelector('[name=customer_address]').value = o.dataset.address;
+    document.querySelector('[name=customer_email]').value = o.dataset.email;
+    document.querySelector('[name=customer_vat_id]').value = o.dataset.vatId;
+  });
+}
+document.getElementById('add-item').addEventListener('click', function () {
+  var body = document.querySelector('#items tbody');
+  body.appendChild(body.lastElementChild.cloneNode(true));
+  var row = body.lastElementChild;
+  row.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+});
+</script>
+{{end}}
