@@ -62,17 +62,14 @@ middleware, use `gitvoice.New(cfg)` and `app.Handler()`.
 - Company profile (Settings page): name, address, Steuernummer, USt-IdNr.,
   bank account — printed on every invoice as the issuer
 - VAT with a configurable rate per invoice (net / VAT / gross breakdown)
-- Time of supply (Leistungsdatum or Leistungszeitraum) per invoice, printed
-  on the sheet (§ 14 Abs. 4 Nr. 6 UStG)
-- Non-blocking § 14 UStG completeness check: the invoice view flags missing
-  mandatory details (issuer name/address, tax number or VAT ID, recipient
-  address, time of supply), while respecting the reduced set for
-  Kleinbetragsrechnungen up to 250 € gross (§ 33 UStDV)
+- Time of supply (single date or period) per invoice, printed on the sheet
+- Non-blocking completeness check: the invoice view flags missing details
+  (issuer name/address, tax number or VAT ID, recipient address, time of
+  supply), with a reduced set for small-amount invoices
 - UI language switch (German / English) with a default in the profile
-- Kleinunternehmerregelung (§ 19 UStG) toggle: when enabled, new invoices
-  default to no VAT and print the § 19 note (text is configurable). The
-  setting is snapshotted per invoice, so flipping it later never changes
-  invoices you already issued
+- Small-business toggle: when enabled, new invoices default to no VAT and
+  print a configurable note. The setting is snapshotted per invoice, so
+  flipping it later never changes invoices you already issued
 - Customer master data: company, first/last name, address, email, phone,
   VAT ID, and internal notes. Manage customers once, then pick them from a
   select when writing an invoice. The invoice stores its own copy of the
@@ -107,25 +104,11 @@ cents (`unit_price_cents`) to avoid floating-point drift.
 The issuer profile lives in `<DataDir>/company.json` and is edited on the
 Settings page. Customers live in `<DataDir>/customers/<id>.json`.
 
-## German legal compliance
+## Disclaimer
 
-gitvoice helps you produce invoices that meet the German § 14 UStG mandatory
-details, but it does not decide compliance for you — the completeness check is
-advisory and never blocks saving. Known scope and limitations:
-
-- **Retention (GoBD):** JSON files in git are editable, and history can be
-  rewritten, so the repository alone is not tamper-proof archival. Keep the
-  printed PDFs of issued invoices in your regular, unchangeable archive for the
-  full retention period (currently 8 years for invoices).
-- **One VAT rate per invoice:** invoices mixing e.g. 19 % and 7 % are not
-  supported yet.
-- **No e-invoicing:** output is PDF/print, not a structured e-invoice
-  (EN 16931 / XRechnung / ZUGFeRD). Domestic B2B issuing of e-invoices becomes
-  mandatory in 2027/2028; businesses under the Kleinunternehmerregelung (§ 19)
-  are exempt from *issuing* them.
-
-This is guidance, not legal or tax advice — verify your invoices with your tax
-advisor.
+gitvoice is provided "as is", without any warranty or liability whatsoever.
+Whether its output is usable for your purpose must always be checked by you
+before use. Use at your own risk.
 
 ## Notes
 
