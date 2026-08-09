@@ -26,7 +26,9 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c := company.Company{
-		Name:              strings.TrimSpace(r.PostFormValue("name")),
+		Company:           strings.TrimSpace(r.PostFormValue("company")),
+		FirstName:         strings.TrimSpace(r.PostFormValue("first_name")),
+		LastName:          strings.TrimSpace(r.PostFormValue("last_name")),
 		Address:           strings.TrimSpace(r.PostFormValue("address")),
 		Email:             strings.TrimSpace(r.PostFormValue("email")),
 		Phone:             strings.TrimSpace(r.PostFormValue("phone")),

@@ -2,6 +2,8 @@
 // It is pure: no I/O, no HTTP, no filesystem.
 package company
 
+import "strings"
+
 // DefaultSmallBusinessNote is the standard German § 19 UStG sentence,
 // printed on invoices when the small-business rule applies.
 const DefaultSmallBusinessNote = "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet."
@@ -9,7 +11,12 @@ const DefaultSmallBusinessNote = "Gemäß § 19 UStG wird keine Umsatzsteuer ber
 // Company is the invoice issuer. All fields are optional: the profile can
 // be filled in incrementally and empty fields are simply not printed.
 type Company struct {
-	Name      string `json:"name,omitempty"`
+	// Company is the business name; FirstName/LastName are the person.
+	// Either Company or LastName carries the printed issuer name, so both
+	// registered businesses and sole traders work.
+	Company   string `json:"company,omitempty"`
+	FirstName string `json:"first_name,omitempty"`
+	LastName  string `json:"last_name,omitempty"`
 	Address   string `json:"address,omitempty"`
 	Email     string `json:"email,omitempty"`
 	Phone     string `json:"phone,omitempty"`
@@ -30,6 +37,19 @@ type Company struct {
 // Default returns the profile used before the user saved one.
 func Default() Company {
 	return Company{SmallBusinessNote: DefaultSmallBusinessNote}
+}
+
+// DisplayName returns the company name, falling back to the person's name.
+func (c Company) DisplayName() string {
+	if c.Company != "" {
+		return c.Company
+	}
+	return strings.TrimSpace(c.FirstName + " " + c.LastName)
+}
+
+// PersonName returns "First Last", or "" when no person name is set.
+func (c Company) PersonName() string {
+	return strings.TrimSpace(c.FirstName + " " + c.LastName)
 }
 
 // Note returns the § 19 UStG sentence to print, falling back to the default

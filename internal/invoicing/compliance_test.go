@@ -10,7 +10,7 @@ import (
 
 // fullCompany is a § 14-complete issuer profile.
 func fullCompany() company.Company {
-	return company.Company{Name: "Jan Langer IT", Address: "Musterstr. 1", TaxNumber: "12/345/67890"}
+	return company.Company{Company: "Jan Langer IT", Address: "Musterstr. 1", TaxNumber: "12/345/67890"}
 }
 
 // bigInvoice grosses above the § 33 small-amount limit and carries full
@@ -75,7 +75,7 @@ func TestComplianceSmallAmountRelaxesExtendedSet(t *testing.T) {
 	small.Items = []invoice.Item{{Description: "Coffee", Quantity: 1, UnitPriceCents: 10000}} // 100 EUR
 	small.Customer.Address = ""
 	small.ServiceDate = ""
-	comp := company.Company{Name: "Jan Langer IT", Address: "Musterstr. 1"} // no tax number
+	comp := company.Company{Company: "Jan Langer IT", Address: "Musterstr. 1"} // no tax number
 	if ws := ComplianceWarnings(small, comp); len(ws) != 0 {
 		t.Fatalf("small-amount invoice produced extended warnings: %v", ws)
 	}

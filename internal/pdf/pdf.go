@@ -102,7 +102,11 @@ func writeParties(pdf *fpdf.Fpdf, tr, t translator, lang string, inv invoice.Inv
 	const colW = 85.0
 	startY := pdf.GetY()
 
-	from := joinLines(comp.Name, comp.Address, comp.Email, comp.Phone)
+	issuer := ""
+	if comp.Company != "" {
+		issuer = comp.PersonName()
+	}
+	from := joinLines(comp.DisplayName(), issuer, comp.Address, comp.Email, comp.Phone)
 	leftY := writeParty(pdf, tr, t, margin, startY, colW, "view.from", from)
 
 	person := ""

@@ -222,7 +222,7 @@ func TestSettingsSaveAndUseAsDefaults(t *testing.T) {
 	srv := newTestServer(t)
 
 	rec := postForm(t, srv, "/settings", url.Values{
-		"name":           {"Jan Langer IT"},
+		"company":        {"Jan Langer IT"},
 		"address":        {"Musterstraße 1\n12345 Berlin"},
 		"tax_number":     {"12/345/67890"},
 		"iban":           {"DE00123456781234567890"},
@@ -320,7 +320,7 @@ func TestComplianceWarningShownForIncompleteInvoice(t *testing.T) {
 func TestNoComplianceWarningWhenComplete(t *testing.T) {
 	srv := newTestServer(t)
 	postForm(t, srv, "/settings", url.Values{
-		"name": {"Jan Langer IT"}, "address": {"Musterstr. 1"}, "tax_number": {"12/345/67890"},
+		"company": {"Jan Langer IT"}, "address": {"Musterstr. 1"}, "tax_number": {"12/345/67890"},
 	})
 	form := createForm()
 	form.Set("item_price", "300,00")
