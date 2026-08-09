@@ -11,6 +11,7 @@ import (
 	"github.com/janmarkuslanger/gitvoice/internal/company"
 	"github.com/janmarkuslanger/gitvoice/internal/customer"
 	"github.com/janmarkuslanger/gitvoice/internal/invoice"
+	"github.com/janmarkuslanger/gitvoice/internal/pdf"
 	"github.com/janmarkuslanger/gitvoice/internal/store"
 )
 
@@ -101,6 +102,28 @@ func (s *Service) UpdateInvoice(oldNumber string, inv invoice.Invoice) error {
 // DeleteInvoice removes an invoice; missing numbers return ErrNotFound.
 func (s *Service) DeleteInvoice(number string) error {
 	return s.store.Delete(number)
+}
+
+// GeneratePDF renders the invoice to a PDF (labels in lang), files it under
+// <DataDir>/pdfs/<number>.pdf, and returns the rendered bytes so the caller
+// can also stream them. Missing invoices return ErrNotFound.
+func (s *Service) GeneratePDF(number, lang string) ([]byte, error) {
+	inv, err := s.store.Get(number)
+	if err != nil {
+		return nil, err
+	}
+	comp, err := s.store.Company()
+	if err != nil {
+		return nil, err
+	}
+	data, err := pdf.Render(inv, comp, lang)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.store.SavePDF(inv.Number, data); err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 // Customer loads a single customer by ID.

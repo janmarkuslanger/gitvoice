@@ -64,6 +64,7 @@ func New(svc *invoicing.Service) (*Server, error) {
 	s.mux.HandleFunc("GET /invoices/new", s.handleNewForm)
 	s.mux.HandleFunc("POST /invoices", s.handleCreate)
 	s.mux.HandleFunc("GET /invoices/{number}", s.handleView)
+	s.mux.HandleFunc("GET /invoices/{number}/pdf", s.handlePDF)
 	s.mux.HandleFunc("GET /invoices/{number}/edit", s.handleEditForm)
 	s.mux.HandleFunc("POST /invoices/{number}", s.handleUpdate)
 	s.mux.HandleFunc("POST /invoices/{number}/delete", s.handleDelete)

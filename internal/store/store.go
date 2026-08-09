@@ -5,6 +5,7 @@
 //	<dir>/company.json
 //	<dir>/invoices/<number>.json
 //	<dir>/customers/<id>.json
+//	<dir>/pdfs/<number>.pdf
 package store
 
 import (
@@ -23,6 +24,7 @@ type Store struct {
 	dataDir      string
 	invoicesDir  string
 	customersDir string
+	pdfsDir      string
 }
 
 // New creates the directory layout if needed and returns a Store for it.
@@ -31,8 +33,9 @@ func New(dataDir string) (*Store, error) {
 		dataDir:      dataDir,
 		invoicesDir:  filepath.Join(dataDir, "invoices"),
 		customersDir: filepath.Join(dataDir, "customers"),
+		pdfsDir:      filepath.Join(dataDir, "pdfs"),
 	}
-	for _, dir := range []string{s.invoicesDir, s.customersDir} {
+	for _, dir := range []string{s.invoicesDir, s.customersDir, s.pdfsDir} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, fmt.Errorf("create data dir: %w", err)
 		}
@@ -47,7 +50,12 @@ func (s *Store) writeJSON(path string, v any) error {
 	if err != nil {
 		return err
 	}
-	data = append(data, '\n')
+	return writeAtomic(path, append(data, '\n'))
+}
+
+// writeAtomic writes data to path via a temp file and rename, so a crash
+// never leaves a half-written file in the repo.
+func writeAtomic(path string, data []byte) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
 	if err != nil {
 		return err

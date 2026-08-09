@@ -1,6 +1,7 @@
 package invoicing
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 
@@ -144,6 +145,31 @@ func TestUpdateCustomerMissing(t *testing.T) {
 	svc := newTestService(t)
 	err := svc.UpdateCustomer("nope", testCustomer("nope"))
 	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestGeneratePDFFilesAndReturnsBytes(t *testing.T) {
+	svc := newTestService(t)
+	if err := svc.CreateInvoice(testInvoice("2026-001")); err != nil {
+		t.Fatal(err)
+	}
+	data, err := svc.GeneratePDF("2026-001", "de")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.HasPrefix(data, []byte("%PDF-")) {
+		t.Fatalf("returned bytes are not a PDF (len=%d)", len(data))
+	}
+	// The PDF must also be filed on disk.
+	if _, err := svc.GeneratePDF("2026-001", "de"); err != nil {
+		t.Fatalf("regenerating overwrote-existing failed: %v", err)
+	}
+}
+
+func TestGeneratePDFMissingInvoice(t *testing.T) {
+	svc := newTestService(t)
+	if _, err := svc.GeneratePDF("nope", "en"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
 }

@@ -41,7 +41,8 @@ var en = map[string]string{
 	"invoices.create_first": "Create the first one.",
 
 	"view.invoice":        "Invoice",
-	"view.print":          "Print / PDF",
+	"view.print":          "Print",
+	"view.pdf":            "Save PDF",
 	"view.confirm_delete": "Delete invoice %s?",
 	"view.due":            "Due",
 	"view.from":           "From",
@@ -158,7 +159,8 @@ var de = map[string]string{
 	"invoices.create_first": "Jetzt die erste anlegen.",
 
 	"view.invoice":        "Rechnung",
-	"view.print":          "Drucken / PDF",
+	"view.print":          "Drucken",
+	"view.pdf":            "PDF speichern",
 	"view.confirm_delete": "Rechnung %s löschen?",
 	"view.due":            "Fällig",
 	"view.from":           "Von",

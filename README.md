@@ -76,7 +76,9 @@ middleware, use `gitvoice.New(cfg)` and `app.Handler()`.
   customer data, so editing or deleting a customer never changes existing
   invoices
 - Line items with quantity and unit price; totals are computed
-- Print-friendly invoice view — use the browser's print dialog for PDFs
+- PDF export: "Save PDF" renders the invoice and files it under
+  `<DataDir>/pdfs/<number>.pdf` (and downloads it). A print-friendly view is
+  also available via the browser's print dialog
 - Status tracking: draft, sent, paid, canceled
 
 ## Data format
@@ -102,7 +104,8 @@ cents (`unit_price_cents`) to avoid floating-point drift.
 ```
 
 The issuer profile lives in `<DataDir>/company.json` and is edited on the
-Settings page. Customers live in `<DataDir>/customers/<id>.json`.
+Settings page. Customers live in `<DataDir>/customers/<id>.json`. Exported
+PDFs are written to `<DataDir>/pdfs/<number>.pdf`.
 
 ## Disclaimer
 
