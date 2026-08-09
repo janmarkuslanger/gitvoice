@@ -148,7 +148,7 @@ func TestCompanyDefaultWhenMissing(t *testing.T) {
 func TestCompanyRoundtrip(t *testing.T) {
 	s := newStore(t)
 	want := company.Company{
-		Name:          "Jan Langer IT",
+		Company:       "Jan Langer IT",
 		TaxNumber:     "12/345/67890",
 		IBAN:          "DE00123456781234567890",
 		SmallBusiness: true,
@@ -160,7 +160,7 @@ func TestCompanyRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Name != want.Name || got.TaxNumber != want.TaxNumber ||
+	if got.Company != want.Company || got.TaxNumber != want.TaxNumber ||
 		got.IBAN != want.IBAN || !got.SmallBusiness {
 		t.Errorf("roundtrip mismatch: got %+v", got)
 	}

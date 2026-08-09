@@ -34,10 +34,10 @@
   </header>
 
   <div class="parties">
-    {{if .Company.Name}}
+    {{if .Company.DisplayName}}
     <section>
       <h2>{{t .Lang "view.from"}}</h2>
-      <p>{{.Company.Name}}{{if .Company.Address}}<br>{{nl2br .Company.Address}}{{end}}
+      <p>{{if .Company.Company}}{{.Company.Company}}{{if .Company.PersonName}}<br>{{.Company.PersonName}}{{end}}{{else}}{{.Company.PersonName}}{{end}}{{if .Company.Address}}<br>{{nl2br .Company.Address}}{{end}}
       {{if .Company.Email}}<br>{{.Company.Email}}{{end}}
       {{if .Company.Phone}}<br>{{.Company.Phone}}{{end}}</p>
     </section>

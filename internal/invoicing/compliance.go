@@ -32,7 +32,7 @@ const smallAmountLimitCents = 25000
 // only above the § 33 UStDV small-amount threshold.
 func ComplianceWarnings(inv invoice.Invoice, comp company.Company) []Warning {
 	var w []Warning
-	if comp.Name == "" {
+	if comp.DisplayName() == "" {
 		w = append(w, WarnIssuerName)
 	}
 	if comp.Address == "" {

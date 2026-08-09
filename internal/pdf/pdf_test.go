@@ -25,7 +25,7 @@ func testInvoice() invoice.Invoice {
 
 func testCompany() company.Company {
 	return company.Company{
-		Name:      "Issuer OHG",
+		Company:   "Issuer OHG",
 		Address:   "Hauptstraße 2\n54321 Bonn",
 		TaxNumber: "12/345/67890",
 		VATID:     "DE999",

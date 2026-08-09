@@ -8,8 +8,12 @@
   <fieldset>
     <legend>{{t .Lang "settings.legend_company"}}</legend>
     <p class="hint">{{t .Lang "settings.company_hint"}}</p>
+    <label>{{t .Lang "form.company"}} <input name="company" value="{{.Company.Company}}"></label>
     <div class="grid">
-      <label>{{t .Lang "settings.name"}} <input name="name" value="{{.Company.Name}}"></label>
+      <label>{{t .Lang "form.first_name"}} <input name="first_name" value="{{.Company.FirstName}}"></label>
+      <label>{{t .Lang "form.last_name"}} <input name="last_name" value="{{.Company.LastName}}"></label>
+    </div>
+    <div class="grid">
       <label>{{t .Lang "form.email"}} <input type="email" name="email" value="{{.Company.Email}}"></label>
       <label>{{t .Lang "form.phone"}} <input name="phone" value="{{.Company.Phone}}"></label>
     </div>
