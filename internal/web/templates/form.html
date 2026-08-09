@@ -1,45 +1,51 @@
-{{define "title"}}{{if .IsNew}}New invoice{{else}}Edit {{.Invoice.Number}}{{end}} – gitvoice{{end}}
+{{define "title"}}{{if .IsNew}}{{t .Lang "form.title_new"}}{{else}}{{t .Lang "form.title_edit"}} {{.Invoice.Number}}{{end}} – gitvoice{{end}}
 {{define "content"}}
-<h1>{{if .IsNew}}New invoice{{else}}Edit invoice {{.Invoice.Number}}{{end}}</h1>
+<h1>{{if .IsNew}}{{t .Lang "form.title_new"}}{{else}}{{t .Lang "form.title_edit"}} {{.Invoice.Number}}{{end}}</h1>
 
 {{if .Error}}<div class="error">{{nl2br .Error}}</div>{{end}}
 
 <form method="post" action="{{.Action}}" class="invoice-form">
   <fieldset>
-    <legend>Invoice</legend>
+    <legend>{{t .Lang "form.legend_invoice"}}</legend>
     <div class="grid">
-      <label>Number <input name="number" value="{{.Invoice.Number}}" required></label>
-      <label>Date <input type="date" name="date" value="{{.Invoice.Date}}" required></label>
-      <label>Due date <input type="date" name="due_date" value="{{.Invoice.DueDate}}"></label>
-      <label>Status
+      <label>{{t .Lang "form.number"}} <input name="number" value="{{.Invoice.Number}}" required></label>
+      <label>{{t .Lang "form.date"}} <input type="date" name="date" value="{{.Invoice.Date}}" required></label>
+      <label>{{t .Lang "form.due_date"}} <input type="date" name="due_date" value="{{.Invoice.DueDate}}"></label>
+      <label>{{t .Lang "form.status"}}
         <select name="status">
           {{$current := .Invoice.Status}}
-          {{range .Statuses}}<option value="{{.}}" {{if eq . $current}}selected{{end}}>{{.}}</option>{{end}}
+          {{range .Statuses}}<option value="{{.}}" {{if eq . $current}}selected{{end}}>{{t $.Lang (printf "status.%s" .)}}</option>{{end}}
         </select>
       </label>
-      <label>Currency <input name="currency" value="{{.Invoice.Currency}}" required></label>
+      <label>{{t .Lang "form.currency"}} <input name="currency" value="{{.Invoice.Currency}}" required></label>
+      <label>{{t .Lang "form.service_date"}} <input type="date" name="service_date" value="{{.Invoice.ServiceDate}}"></label>
     </div>
+    <div class="grid">
+      <label>{{t .Lang "form.service_period_start"}} <input type="date" name="service_period_start" value="{{.Invoice.ServicePeriodStart}}"></label>
+      <label>{{t .Lang "form.service_period_end"}} <input type="date" name="service_period_end" value="{{.Invoice.ServicePeriodEnd}}"></label>
+    </div>
+    <p class="hint">{{t .Lang "form.service_hint"}}</p>
   </fieldset>
 
   <fieldset>
-    <legend>Tax</legend>
+    <legend>{{t .Lang "form.legend_tax"}}</legend>
     <label class="check">
       <input type="checkbox" name="small_business" {{if .Invoice.SmallBusiness}}checked{{end}}>
-      Kleinunternehmerregelung (§ 19 UStG) — no VAT on this invoice
+      {{t .Lang "form.small_business_invoice"}}
     </label>
     <div class="grid">
-      <label>VAT rate % (ignored when § 19 UStG is checked)
+      <label>{{t .Lang "form.vat_rate"}}
         <input name="tax_rate" value="{{qty .Invoice.TaxRatePercent}}" inputmode="decimal">
       </label>
     </div>
   </fieldset>
 
   <fieldset>
-    <legend>Customer</legend>
+    <legend>{{t .Lang "form.legend_customer"}}</legend>
     {{if .Customers}}
-    <label>Load from customers
+    <label>{{t .Lang "form.load_customer"}}
       <select id="customer-select">
-        <option value="">— select a customer —</option>
+        <option value="">{{t .Lang "form.select_customer"}}</option>
         {{range .Customers}}
         <option value="{{.ID}}" data-company="{{.Company}}" data-first-name="{{.FirstName}}"
                 data-last-name="{{.LastName}}" data-address="{{.Address}}"
@@ -47,26 +53,26 @@
         {{end}}
       </select>
     </label>
-    <p class="hint">Selecting fills the fields below; the invoice stores its own copy.</p>
+    <p class="hint">{{t .Lang "form.select_hint"}}</p>
     {{end}}
     <div class="grid">
-      <label>Company <input name="customer_company" value="{{.Invoice.Customer.Company}}"></label>
-      <label>First name <input name="customer_first_name" value="{{.Invoice.Customer.FirstName}}"></label>
-      <label>Last name <input name="customer_last_name" value="{{.Invoice.Customer.LastName}}"></label>
+      <label>{{t .Lang "form.company"}} <input name="customer_company" value="{{.Invoice.Customer.Company}}"></label>
+      <label>{{t .Lang "form.first_name"}} <input name="customer_first_name" value="{{.Invoice.Customer.FirstName}}"></label>
+      <label>{{t .Lang "form.last_name"}} <input name="customer_last_name" value="{{.Invoice.Customer.LastName}}"></label>
     </div>
-    <p class="hint">Company or last name is required.</p>
+    <p class="hint">{{t .Lang "form.name_hint"}}</p>
     <div class="grid">
-      <label>Email <input type="email" name="customer_email" value="{{.Invoice.Customer.Email}}"></label>
-      <label>VAT ID (USt-IdNr.) <input name="customer_vat_id" value="{{.Invoice.Customer.VATID}}"></label>
+      <label>{{t .Lang "form.email"}} <input type="email" name="customer_email" value="{{.Invoice.Customer.Email}}"></label>
+      <label>{{t .Lang "form.vat_id"}} <input name="customer_vat_id" value="{{.Invoice.Customer.VATID}}"></label>
     </div>
-    <label>Address <textarea name="customer_address" rows="3">{{.Invoice.Customer.Address}}</textarea></label>
+    <label>{{t .Lang "form.address"}} <textarea name="customer_address" rows="3">{{.Invoice.Customer.Address}}</textarea></label>
   </fieldset>
 
   <fieldset>
-    <legend>Items</legend>
+    <legend>{{t .Lang "form.legend_items"}}</legend>
     <table id="items">
       <thead>
-        <tr><th>Description</th><th>Qty</th><th>Unit price</th></tr>
+        <tr><th>{{t .Lang "th.description"}}</th><th>{{t .Lang "th.qty"}}</th><th>{{t .Lang "th.unit_price"}}</th></tr>
       </thead>
       <tbody>
         {{range .Invoice.Items}}
@@ -83,18 +89,18 @@
         </tr>
       </tbody>
     </table>
-    <button type="button" class="button" id="add-item">Add item</button>
-    <p class="hint">Rows with an empty description are ignored.</p>
+    <button type="button" class="button" id="add-item">{{t .Lang "form.add_item"}}</button>
+    <p class="hint">{{t .Lang "form.items_hint"}}</p>
   </fieldset>
 
   <fieldset>
-    <legend>Notes</legend>
+    <legend>{{t .Lang "form.legend_notes"}}</legend>
     <textarea name="notes" rows="3">{{.Invoice.Notes}}</textarea>
   </fieldset>
 
   <div class="actions">
-    <button class="button primary" type="submit">Save</button>
-    <a href="{{if .IsNew}}/{{else}}/invoices/{{.Invoice.Number}}{{end}}">Cancel</a>
+    <button class="button primary" type="submit">{{t .Lang "common.save"}}</button>
+    <a href="{{if .IsNew}}/{{else}}/invoices/{{.Invoice.Number}}{{end}}">{{t .Lang "common.cancel"}}</a>
   </div>
 </form>
 

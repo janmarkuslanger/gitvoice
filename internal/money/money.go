@@ -1,4 +1,6 @@
-package web
+// Package money parses and formats monetary amounts (stored as cents) and
+// decimal user input. It is pure: no I/O, no HTTP.
+package money
 
 import (
 	"fmt"
@@ -44,12 +46,13 @@ func FormatCents(cents int64) string {
 	return fmt.Sprintf("%s%d.%02d", sign, cents/100, cents%100)
 }
 
-// normalizeDecimal makes "1,5" parseable by strconv.ParseFloat.
-func normalizeDecimal(s string) string {
-	return strings.Replace(strings.TrimSpace(s), ",", ".", 1)
+// ParseDecimal parses a plain decimal (quantity, tax rate) accepting ','
+// as decimal separator, e.g. "1,5" -> 1.5.
+func ParseDecimal(s string) (float64, error) {
+	return strconv.ParseFloat(strings.Replace(strings.TrimSpace(s), ",", ".", 1), 64)
 }
 
-// formatQuantity renders a quantity without trailing zeros, e.g. 1.5 -> "1.5", 2 -> "2".
-func formatQuantity(q float64) string {
+// FormatQuantity renders a quantity without trailing zeros, e.g. 1.5 -> "1.5", 2 -> "2".
+func FormatQuantity(q float64) string {
 	return strconv.FormatFloat(q, 'f', -1, 64)
 }

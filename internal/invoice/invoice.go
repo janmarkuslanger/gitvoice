@@ -11,10 +11,6 @@ import (
 	"time"
 )
 
-// CurrentSchema is written into every persisted invoice so the on-disk
-// format can be migrated in later versions.
-const CurrentSchema = 1
-
 // Status is the lifecycle state of an invoice.
 type Status string
 
@@ -72,17 +68,23 @@ func (it Item) TotalCents() int64 {
 // from the company profile at creation) so that changing the profile later
 // never alters already-issued invoices.
 type Invoice struct {
-	Schema         int      `json:"schema"`
-	Number         string   `json:"number"`
-	Date           string   `json:"date"`               // ISO 8601, e.g. 2026-08-07
-	DueDate        string   `json:"due_date,omitempty"` // ISO 8601
-	Status         Status   `json:"status"`
-	Currency       string   `json:"currency"`
-	Customer       Customer `json:"customer"`
-	Items          []Item   `json:"items"`
-	SmallBusiness  bool     `json:"small_business"`   // § 19 UStG: no VAT
-	TaxRatePercent float64  `json:"tax_rate_percent"` // ignored when SmallBusiness
-	Notes          string   `json:"notes,omitempty"`
+	Number   string `json:"number"`
+	Date     string `json:"date"`               // ISO 8601, e.g. 2026-08-07
+	DueDate  string `json:"due_date,omitempty"` // ISO 8601
+	Status   Status `json:"status"`
+	Currency string `json:"currency"`
+	// Time of supply (§ 14 Abs. 4 Nr. 6 UStG): either a single ServiceDate
+	// or a ServicePeriodStart–ServicePeriodEnd range. All ISO 8601. Optional
+	// at the model level; presence is surfaced as a non-blocking warning in
+	// the invoicing layer, not enforced here.
+	ServiceDate        string   `json:"service_date,omitempty"`
+	ServicePeriodStart string   `json:"service_period_start,omitempty"`
+	ServicePeriodEnd   string   `json:"service_period_end,omitempty"`
+	Customer           Customer `json:"customer"`
+	Items              []Item   `json:"items"`
+	SmallBusiness      bool     `json:"small_business"`   // § 19 UStG: no VAT
+	TaxRatePercent     float64  `json:"tax_rate_percent"` // ignored when SmallBusiness
+	Notes              string   `json:"notes,omitempty"`
 }
 
 // NetCents returns the sum of all line items in cents.
@@ -107,6 +109,11 @@ func (inv Invoice) TotalCents() int64 {
 	return inv.NetCents() + inv.TaxCents()
 }
 
+// HasServicePeriod reports whether a full service period (start and end) is set.
+func (inv Invoice) HasServicePeriod() bool {
+	return inv.ServicePeriodStart != "" && inv.ServicePeriodEnd != ""
+}
+
 // numberPattern keeps numbers safe to use as filenames: no path
 // separators, no leading dot, bounded length.
 var numberPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$`)
@@ -128,6 +135,25 @@ func (inv Invoice) Validate() error {
 	if inv.DueDate != "" {
 		if _, err := time.Parse("2006-01-02", inv.DueDate); err != nil {
 			errs = append(errs, errors.New("due date must be a valid date (YYYY-MM-DD)"))
+		}
+	}
+	for _, d := range []struct{ label, value string }{
+		{"service date", inv.ServiceDate},
+		{"service period start", inv.ServicePeriodStart},
+		{"service period end", inv.ServicePeriodEnd},
+	} {
+		if d.value != "" {
+			if _, err := time.Parse("2006-01-02", d.value); err != nil {
+				errs = append(errs, fmt.Errorf("%s must be a valid date (YYYY-MM-DD)", d.label))
+			}
+		}
+	}
+	if (inv.ServicePeriodStart == "") != (inv.ServicePeriodEnd == "") {
+		errs = append(errs, errors.New("service period needs both a start and an end date"))
+	}
+	if start, err1 := time.Parse("2006-01-02", inv.ServicePeriodStart); err1 == nil {
+		if end, err2 := time.Parse("2006-01-02", inv.ServicePeriodEnd); err2 == nil && end.Before(start) {
+			errs = append(errs, errors.New("service period end must not be before its start"))
 		}
 	}
 	if !validStatus(inv.Status) {

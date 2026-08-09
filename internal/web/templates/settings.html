@@ -1,48 +1,62 @@
-{{define "title"}}Settings – gitvoice{{end}}
+{{define "title"}}{{t .Lang "settings.title"}} – gitvoice{{end}}
 {{define "content"}}
-<h1>Settings</h1>
+<h1>{{t .Lang "settings.title"}}</h1>
 
-{{if .Saved}}<div class="success">Settings saved.</div>{{end}}
+{{if .Saved}}<div class="success">{{t .Lang "settings.saved"}}</div>{{end}}
 
 <form method="post" action="/settings">
   <fieldset>
-    <legend>Your company</legend>
-    <p class="hint">Printed on every invoice as the issuer.</p>
+    <legend>{{t .Lang "settings.legend_company"}}</legend>
+    <p class="hint">{{t .Lang "settings.company_hint"}}</p>
     <div class="grid">
-      <label>Name <input name="name" value="{{.Company.Name}}"></label>
-      <label>Email <input type="email" name="email" value="{{.Company.Email}}"></label>
-      <label>Phone <input name="phone" value="{{.Company.Phone}}"></label>
+      <label>{{t .Lang "settings.name"}} <input name="name" value="{{.Company.Name}}"></label>
+      <label>{{t .Lang "form.email"}} <input type="email" name="email" value="{{.Company.Email}}"></label>
+      <label>{{t .Lang "form.phone"}} <input name="phone" value="{{.Company.Phone}}"></label>
     </div>
-    <label>Address <textarea name="address" rows="3">{{.Company.Address}}</textarea></label>
+    <label>{{t .Lang "form.address"}} <textarea name="address" rows="3">{{.Company.Address}}</textarea></label>
   </fieldset>
 
   <fieldset>
-    <legend>Tax</legend>
+    <legend>{{t .Lang "settings.legend_tax"}}</legend>
     <div class="grid">
-      <label>Tax number (Steuernummer) <input name="tax_number" value="{{.Company.TaxNumber}}"></label>
-      <label>VAT ID (USt-IdNr.) <input name="vat_id" value="{{.Company.VATID}}"></label>
+      <label>{{t .Lang "settings.tax_number"}} <input name="tax_number" value="{{.Company.TaxNumber}}"></label>
+      <label>{{t .Lang "form.vat_id"}} <input name="vat_id" value="{{.Company.VATID}}"></label>
     </div>
     <label class="check">
       <input type="checkbox" name="small_business" {{if .Company.SmallBusiness}}checked{{end}}>
-      Kleinunternehmerregelung (§ 19 UStG) — new invoices default to no VAT
+      {{t .Lang "settings.small_business"}}
     </label>
-    <label>Note printed on small-business invoices
+    <label>{{t .Lang "settings.small_business_note"}}
       <input name="small_business_note" value="{{.Company.SmallBusinessNote}}">
     </label>
   </fieldset>
 
   <fieldset>
-    <legend>Bank account</legend>
+    <legend>{{t .Lang "settings.legend_bank"}}</legend>
     <div class="grid">
       <label>IBAN <input name="iban" value="{{.Company.IBAN}}"></label>
       <label>BIC <input name="bic" value="{{.Company.BIC}}"></label>
-      <label>Bank <input name="bank_name" value="{{.Company.BankName}}"></label>
+      <label>{{t .Lang "settings.bank"}} <input name="bank_name" value="{{.Company.BankName}}"></label>
     </div>
   </fieldset>
 
+  <fieldset>
+    <legend>{{t .Lang "settings.legend_language"}}</legend>
+    <div class="grid">
+      <label>{{t .Lang "settings.default_language"}}
+        {{$lang := .Company.Language}}
+        <select name="language">
+          <option value="en" {{if ne $lang "de"}}selected{{end}}>{{t .Lang "lang.en"}}</option>
+          <option value="de" {{if eq $lang "de"}}selected{{end}}>{{t .Lang "lang.de"}}</option>
+        </select>
+      </label>
+    </div>
+    <p class="hint">{{t .Lang "settings.language_hint"}}</p>
+  </fieldset>
+
   <div class="actions">
-    <button class="button primary" type="submit">Save</button>
-    <a href="/">Cancel</a>
+    <button class="button primary" type="submit">{{t .Lang "common.save"}}</button>
+    <a href="/">{{t .Lang "common.cancel"}}</a>
   </div>
 </form>
 {{end}}

@@ -5,26 +5,25 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
-	"github.com/janmarkuslanger/gitvoice/internal/customer"
 	"github.com/janmarkuslanger/gitvoice/internal/invoice"
-	"github.com/janmarkuslanger/gitvoice/internal/store"
+	"github.com/janmarkuslanger/gitvoice/internal/invoicing"
+	"github.com/janmarkuslanger/gitvoice/internal/money"
 )
 
 func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
-	invoices, err := s.store.List()
+	invoices, err := s.svc.Invoices()
 	if err != nil {
 		s.serverError(w, err)
 		return
 	}
-	s.render(w, "list.html", map[string]any{"Invoices": invoices})
+	s.render(w, r, "list.html", map[string]any{"Invoices": invoices})
 }
 
 func (s *Server) handleView(w http.ResponseWriter, r *http.Request) {
-	inv, err := s.store.Get(r.PathValue("number"))
-	if errors.Is(err, store.ErrNotFound) {
+	inv, err := s.svc.Invoice(r.PathValue("number"))
+	if errors.Is(err, invoicing.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}
@@ -32,68 +31,57 @@ func (s *Server) handleView(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	comp, err := s.store.Company()
+	comp, err := s.svc.Company()
 	if err != nil {
 		s.serverError(w, err)
 		return
 	}
-	s.render(w, "view.html", map[string]any{"Invoice": inv, "Company": comp})
-}
-
-type formData struct {
-	Invoice   invoice.Invoice
-	Statuses  []invoice.Status
-	Customers []customer.Customer
-	IsNew     bool
-	Action    string
-	Error     string
+	s.render(w, r, "view.html", map[string]any{
+		"Invoice":  inv,
+		"Company":  comp,
+		"Warnings": invoicing.ComplianceWarnings(inv, comp),
+	})
 }
 
 // invoiceForm assembles the render data for the invoice form, loading the
 // customer master data for the customer select.
-func (s *Server) invoiceForm(inv invoice.Invoice, isNew bool, action, errMsg string) (formData, error) {
-	customers, err := s.store.ListCustomers()
+func (s *Server) invoiceForm(inv invoice.Invoice, isNew bool, action, errMsg string) (map[string]any, error) {
+	customers, err := s.svc.Customers()
 	if err != nil {
-		return formData{}, err
+		return nil, err
 	}
-	return formData{
-		Invoice:   inv,
-		Statuses:  invoice.Statuses,
-		Customers: customers,
-		IsNew:     isNew,
-		Action:    action,
-		Error:     errMsg,
+	return map[string]any{
+		"Invoice":   inv,
+		"Statuses":  invoice.Statuses,
+		"Customers": customers,
+		"IsNew":     isNew,
+		"Action":    action,
+		"Error":     errMsg,
 	}, nil
 }
 
-func (s *Server) renderInvoiceForm(w http.ResponseWriter, inv invoice.Invoice, isNew bool, action, errMsg string) {
+func (s *Server) renderInvoiceForm(w http.ResponseWriter, r *http.Request, inv invoice.Invoice, isNew bool, action, errMsg string) {
 	data, err := s.invoiceForm(inv, isNew, action, errMsg)
 	if err != nil {
 		s.serverError(w, err)
 		return
 	}
-	s.render(w, "form.html", data)
+	s.render(w, r, "form.html", data)
 }
 
 func (s *Server) handleNewForm(w http.ResponseWriter, r *http.Request) {
-	comp, err := s.store.Company()
+	inv, err := s.svc.NewDraft()
 	if err != nil {
 		s.serverError(w, err)
 		return
 	}
-	inv := invoice.Invoice{Status: invoice.StatusDraft, Currency: "EUR"}
-	// Snapshot the tax defaults from the profile; the form can override them.
-	inv.SmallBusiness = comp.SmallBusiness
-	if !comp.SmallBusiness {
-		inv.TaxRatePercent = 19
-	}
-	s.renderInvoiceForm(w, inv, true, "/invoices", "")
+	s.renderInvoiceForm(w, r, inv, true, "/invoices", "")
 }
 
 func (s *Server) handleEditForm(w http.ResponseWriter, r *http.Request) {
 	number := r.PathValue("number")
-	inv, err := s.store.Get(number)
-	if errors.Is(err, store.ErrNotFound) {
+	inv, err := s.svc.Invoice(number)
+	if errors.Is(err, invoicing.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}
@@ -101,23 +89,16 @@ func (s *Server) handleEditForm(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, err)
 		return
 	}
-	s.renderInvoiceForm(w, inv, false, "/invoices/"+url.PathEscape(number), "")
+	s.renderInvoiceForm(w, r, inv, false, "/invoices/"+url.PathEscape(number), "")
 }
 
 func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	inv, err := parseInvoiceForm(r)
 	if err == nil {
-		var exists bool
-		exists, err = s.store.Exists(inv.Number)
-		if err == nil && exists {
-			err = fmt.Errorf("invoice %s already exists", inv.Number)
-		}
-	}
-	if err == nil {
-		err = s.store.Save(inv)
+		err = s.svc.CreateInvoice(inv)
 	}
 	if err != nil {
-		s.renderInvoiceForm(w, inv, true, "/invoices", err.Error())
+		s.renderInvoiceForm(w, r, inv, true, "/invoices", err.Error())
 		return
 	}
 	http.Redirect(w, r, "/invoices/"+url.PathEscape(inv.Number), http.StatusSeeOther)
@@ -125,31 +106,24 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	oldNumber := r.PathValue("number")
-	if ok, err := s.store.Exists(oldNumber); err != nil || !ok {
+	inv, err := parseInvoiceForm(r)
+	if err == nil {
+		err = s.svc.UpdateInvoice(oldNumber, inv)
+	}
+	if errors.Is(err, invoicing.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}
-	inv, err := parseInvoiceForm(r)
-	if err == nil {
-		err = s.store.Save(inv)
-	}
 	if err != nil {
-		s.renderInvoiceForm(w, inv, false, "/invoices/"+url.PathEscape(oldNumber), err.Error())
+		s.renderInvoiceForm(w, r, inv, false, "/invoices/"+url.PathEscape(oldNumber), err.Error())
 		return
-	}
-	// The number doubles as the filename: renaming means save new, drop old.
-	if inv.Number != oldNumber {
-		if err := s.store.Delete(oldNumber); err != nil && !errors.Is(err, store.ErrNotFound) {
-			s.serverError(w, err)
-			return
-		}
 	}
 	http.Redirect(w, r, "/invoices/"+url.PathEscape(inv.Number), http.StatusSeeOther)
 }
 
 func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
-	err := s.store.Delete(r.PathValue("number"))
-	if errors.Is(err, store.ErrNotFound) {
+	err := s.svc.DeleteInvoice(r.PathValue("number"))
+	if errors.Is(err, invoicing.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}
@@ -165,11 +139,14 @@ func parseInvoiceForm(r *http.Request) (invoice.Invoice, error) {
 		return invoice.Invoice{}, fmt.Errorf("parse form: %w", err)
 	}
 	inv := invoice.Invoice{
-		Number:   strings.TrimSpace(r.PostFormValue("number")),
-		Date:     r.PostFormValue("date"),
-		DueDate:  r.PostFormValue("due_date"),
-		Status:   invoice.Status(r.PostFormValue("status")),
-		Currency: strings.TrimSpace(r.PostFormValue("currency")),
+		Number:             strings.TrimSpace(r.PostFormValue("number")),
+		Date:               r.PostFormValue("date"),
+		DueDate:            r.PostFormValue("due_date"),
+		Status:             invoice.Status(r.PostFormValue("status")),
+		Currency:           strings.TrimSpace(r.PostFormValue("currency")),
+		ServiceDate:        r.PostFormValue("service_date"),
+		ServicePeriodStart: r.PostFormValue("service_period_start"),
+		ServicePeriodEnd:   r.PostFormValue("service_period_end"),
 		Customer: invoice.Customer{
 			Company:   strings.TrimSpace(r.PostFormValue("customer_company")),
 			FirstName: strings.TrimSpace(r.PostFormValue("customer_first_name")),
@@ -186,7 +163,7 @@ func parseInvoiceForm(r *http.Request) (invoice.Invoice, error) {
 	prices := r.PostForm["item_price"]
 	var errs []error
 	if raw := strings.TrimSpace(r.PostFormValue("tax_rate")); raw != "" && !inv.SmallBusiness {
-		rate, err := strconv.ParseFloat(normalizeDecimal(raw), 64)
+		rate, err := money.ParseDecimal(raw)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("invalid tax rate %q", raw))
 		}
@@ -199,14 +176,14 @@ func parseInvoiceForm(r *http.Request) (invoice.Invoice, error) {
 		}
 		item := invoice.Item{Description: desc}
 		if i < len(quantities) {
-			q, err := strconv.ParseFloat(normalizeDecimal(quantities[i]), 64)
+			q, err := money.ParseDecimal(quantities[i])
 			if err != nil {
 				errs = append(errs, fmt.Errorf("item %d: invalid quantity %q", i+1, quantities[i]))
 			}
 			item.Quantity = q
 		}
 		if i < len(prices) {
-			cents, err := ParseCents(prices[i])
+			cents, err := money.ParseCents(prices[i])
 			if err != nil {
 				errs = append(errs, fmt.Errorf("item %d: invalid price %q", i+1, prices[i]))
 			}

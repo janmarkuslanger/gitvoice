@@ -71,7 +71,6 @@ func (s *Store) Save(inv invoice.Invoice) error {
 	if err := inv.Validate(); err != nil {
 		return err
 	}
-	inv.Schema = invoice.CurrentSchema
 	p, err := s.invoicePath(inv.Number)
 	if err != nil {
 		return err

@@ -1,10 +1,10 @@
-{{define "title"}}Invoices – gitvoice{{end}}
+{{define "title"}}{{t .Lang "invoices.title"}} – gitvoice{{end}}
 {{define "content"}}
-<h1>Invoices</h1>
+<h1>{{t .Lang "invoices.title"}}</h1>
 {{if .Invoices}}
 <table>
   <thead>
-    <tr><th>Number</th><th>Date</th><th>Customer</th><th>Status</th><th class="num">Total</th></tr>
+    <tr><th>{{t .Lang "th.number"}}</th><th>{{t .Lang "th.date"}}</th><th>{{t .Lang "th.customer"}}</th><th>{{t .Lang "th.status"}}</th><th class="num">{{t .Lang "th.total"}}</th></tr>
   </thead>
   <tbody>
     {{range .Invoices}}
@@ -12,13 +12,13 @@
       <td><a href="/invoices/{{.Number}}">{{.Number}}</a></td>
       <td>{{.Date}}</td>
       <td>{{.Customer.DisplayName}}</td>
-      <td><span class="status status-{{.Status}}">{{.Status}}</span></td>
+      <td><span class="status status-{{.Status}}">{{t $.Lang (printf "status.%s" .Status)}}</span></td>
       <td class="num">{{money .TotalCents}} {{.Currency}}</td>
     </tr>
     {{end}}
   </tbody>
 </table>
 {{else}}
-<p class="empty">No invoices yet. <a href="/invoices/new">Create the first one.</a></p>
+<p class="empty">{{t .Lang "invoices.empty"}} <a href="/invoices/new">{{t .Lang "invoices.create_first"}}</a></p>
 {{end}}
 {{end}}

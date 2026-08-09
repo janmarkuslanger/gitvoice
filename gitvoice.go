@@ -19,6 +19,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/janmarkuslanger/gitvoice/internal/invoicing"
 	"github.com/janmarkuslanger/gitvoice/internal/store"
 	"github.com/janmarkuslanger/gitvoice/internal/web"
 )
@@ -56,7 +57,7 @@ func New(cfg Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	srv, err := web.New(st)
+	srv, err := web.New(invoicing.New(st))
 	if err != nil {
 		return nil, err
 	}

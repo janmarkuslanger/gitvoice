@@ -1,49 +1,58 @@
-{{define "title"}}Invoice {{.Invoice.Number}} – gitvoice{{end}}
+{{define "title"}}{{t .Lang "view.invoice"}} {{.Invoice.Number}} – gitvoice{{end}}
 {{define "content"}}
 <div class="actions no-print">
-  <a href="/">&larr; Back</a>
+  <a href="/">&larr; {{t .Lang "common.back"}}</a>
   <span class="spacer"></span>
-  <a class="button" href="/invoices/{{.Invoice.Number}}/edit">Edit</a>
-  <button class="button" onclick="window.print()">Print / PDF</button>
+  <a class="button" href="/invoices/{{.Invoice.Number}}/edit">{{t .Lang "common.edit"}}</a>
+  <button class="button" onclick="window.print()">{{t .Lang "view.print"}}</button>
   <form method="post" action="/invoices/{{.Invoice.Number}}/delete"
-        onsubmit="return confirm('Delete invoice {{.Invoice.Number}}?')">
-    <button class="button danger" type="submit">Delete</button>
+        onsubmit="return confirm('{{printf (t .Lang "view.confirm_delete") .Invoice.Number}}')">
+    <button class="button danger" type="submit">{{t .Lang "common.delete"}}</button>
   </form>
 </div>
+
+{{if .Warnings}}
+<div class="warning no-print">
+  <strong>{{t .Lang "compliance.heading"}}</strong>
+  <ul>{{range .Warnings}}<li>{{t $.Lang (printf "%s" .)}}</li>{{end}}</ul>
+</div>
+{{end}}
 
 <article class="invoice-sheet">
   <header class="invoice-head">
     <div>
-      <h1>Invoice {{.Invoice.Number}}</h1>
-      <span class="status status-{{.Invoice.Status}} no-print">{{.Invoice.Status}}</span>
+      <h1>{{t .Lang "view.invoice"}} {{.Invoice.Number}}</h1>
+      <span class="status status-{{.Invoice.Status}} no-print">{{t .Lang (printf "status.%s" .Invoice.Status)}}</span>
     </div>
     <dl>
-      <dt>Date</dt><dd>{{.Invoice.Date}}</dd>
-      {{if .Invoice.DueDate}}<dt>Due</dt><dd>{{.Invoice.DueDate}}</dd>{{end}}
+      <dt>{{t .Lang "th.date"}}</dt><dd>{{.Invoice.Date}}</dd>
+      {{if .Invoice.DueDate}}<dt>{{t .Lang "view.due"}}</dt><dd>{{.Invoice.DueDate}}</dd>{{end}}
+      {{if .Invoice.HasServicePeriod}}<dt>{{t .Lang "view.service_period"}}</dt><dd>{{.Invoice.ServicePeriodStart}} – {{.Invoice.ServicePeriodEnd}}</dd>
+      {{else if .Invoice.ServiceDate}}<dt>{{t .Lang "view.service_date"}}</dt><dd>{{.Invoice.ServiceDate}}</dd>{{end}}
     </dl>
   </header>
 
   <div class="parties">
     {{if .Company.Name}}
     <section>
-      <h2>From</h2>
+      <h2>{{t .Lang "view.from"}}</h2>
       <p>{{.Company.Name}}{{if .Company.Address}}<br>{{nl2br .Company.Address}}{{end}}
       {{if .Company.Email}}<br>{{.Company.Email}}{{end}}
       {{if .Company.Phone}}<br>{{.Company.Phone}}{{end}}</p>
     </section>
     {{end}}
     <section>
-      <h2>Billed to</h2>
+      <h2>{{t .Lang "view.billed_to"}}</h2>
       <p>{{if .Invoice.Customer.Company}}{{.Invoice.Customer.Company}}{{if .Invoice.Customer.PersonName}}<br>{{.Invoice.Customer.PersonName}}{{end}}{{else}}{{.Invoice.Customer.PersonName}}{{end}}
       {{if .Invoice.Customer.Address}}<br>{{nl2br .Invoice.Customer.Address}}{{end}}
       {{if .Invoice.Customer.Email}}<br>{{.Invoice.Customer.Email}}{{end}}
-      {{if .Invoice.Customer.VATID}}<br>USt-IdNr.: {{.Invoice.Customer.VATID}}{{end}}</p>
+      {{if .Invoice.Customer.VATID}}<br>{{t .Lang "view.vat_id"}}: {{.Invoice.Customer.VATID}}{{end}}</p>
     </section>
   </div>
 
   <table>
     <thead>
-      <tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Total</th></tr>
+      <tr><th>{{t .Lang "th.description"}}</th><th class="num">{{t .Lang "th.qty"}}</th><th class="num">{{t .Lang "th.unit_price"}}</th><th class="num">{{t .Lang "th.total"}}</th></tr>
     </thead>
     <tbody>
       {{range .Invoice.Items}}
@@ -57,23 +66,23 @@
     </tbody>
     <tfoot>
       {{if .Invoice.SmallBusiness}}
-      <tr class="total"><td colspan="3">Total</td><td class="num">{{money .Invoice.TotalCents}} {{.Invoice.Currency}}</td></tr>
+      <tr class="total"><td colspan="3">{{t .Lang "th.total"}}</td><td class="num">{{money .Invoice.TotalCents}} {{.Invoice.Currency}}</td></tr>
       {{else}}
-      <tr><td colspan="3">Net</td><td class="num">{{money .Invoice.NetCents}}</td></tr>
-      <tr><td colspan="3">VAT {{qty .Invoice.TaxRatePercent}}%</td><td class="num">{{money .Invoice.TaxCents}}</td></tr>
-      <tr class="total"><td colspan="3">Total</td><td class="num">{{money .Invoice.TotalCents}} {{.Invoice.Currency}}</td></tr>
+      <tr><td colspan="3">{{t .Lang "view.net"}}</td><td class="num">{{money .Invoice.NetCents}}</td></tr>
+      <tr><td colspan="3">{{t .Lang "view.vat"}} {{qty .Invoice.TaxRatePercent}}%</td><td class="num">{{money .Invoice.TaxCents}}</td></tr>
+      <tr class="total"><td colspan="3">{{t .Lang "th.total"}}</td><td class="num">{{money .Invoice.TotalCents}} {{.Invoice.Currency}}</td></tr>
       {{end}}
     </tfoot>
   </table>
 
   {{if .Invoice.SmallBusiness}}<p class="tax-note">{{.Company.Note}}</p>{{end}}
 
-  {{if .Invoice.Notes}}<section class="notes"><h2>Notes</h2><p>{{nl2br .Invoice.Notes}}</p></section>{{end}}
+  {{if .Invoice.Notes}}<section class="notes"><h2>{{t .Lang "view.notes"}}</h2><p>{{nl2br .Invoice.Notes}}</p></section>{{end}}
 
   {{if or .Company.TaxNumber .Company.VATID .Company.IBAN}}
   <footer class="invoice-foot">
-    {{if .Company.TaxNumber}}<span>Steuernummer: {{.Company.TaxNumber}}</span>{{end}}
-    {{if .Company.VATID}}<span>USt-IdNr.: {{.Company.VATID}}</span>{{end}}
+    {{if .Company.TaxNumber}}<span>{{t .Lang "view.tax_number"}}: {{.Company.TaxNumber}}</span>{{end}}
+    {{if .Company.VATID}}<span>{{t .Lang "view.vat_id"}}: {{.Company.VATID}}</span>{{end}}
     {{if .Company.IBAN}}<span>IBAN: {{.Company.IBAN}}{{if .Company.BIC}} · BIC: {{.Company.BIC}}{{end}}{{if .Company.BankName}} · {{.Company.BankName}}{{end}}</span>{{end}}
   </footer>
   {{end}}

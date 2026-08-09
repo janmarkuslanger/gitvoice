@@ -41,9 +41,6 @@ func TestSaveGetRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Schema != invoice.CurrentSchema {
-		t.Errorf("schema = %d, want %d", got.Schema, invoice.CurrentSchema)
-	}
 	if got.Number != want.Number || got.Customer.Company != want.Customer.Company ||
 		got.TotalCents() != want.TotalCents() {
 		t.Errorf("roundtrip mismatch: got %+v", got)
@@ -162,9 +159,6 @@ func TestCompanyRoundtrip(t *testing.T) {
 	got, err := s.Company()
 	if err != nil {
 		t.Fatal(err)
-	}
-	if got.Schema != company.CurrentSchema {
-		t.Errorf("schema = %d, want %d", got.Schema, company.CurrentSchema)
 	}
 	if got.Name != want.Name || got.TaxNumber != want.TaxNumber ||
 		got.IBAN != want.IBAN || !got.SmallBusiness {

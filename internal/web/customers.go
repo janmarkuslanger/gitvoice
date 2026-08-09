@@ -8,36 +8,36 @@ import (
 	"strings"
 
 	"github.com/janmarkuslanger/gitvoice/internal/customer"
-	"github.com/janmarkuslanger/gitvoice/internal/store"
+	"github.com/janmarkuslanger/gitvoice/internal/invoicing"
 )
 
-type customerFormData struct {
-	Customer customer.Customer
-	IsNew    bool
-	Action   string
-	Error    string
+// customerFormData assembles the render data for the customer form.
+func customerFormData(c customer.Customer, isNew bool, action, errMsg string) map[string]any {
+	return map[string]any{
+		"Customer": c,
+		"IsNew":    isNew,
+		"Action":   action,
+		"Error":    errMsg,
+	}
 }
 
 func (s *Server) handleCustomers(w http.ResponseWriter, r *http.Request) {
-	customers, err := s.store.ListCustomers()
+	customers, err := s.svc.Customers()
 	if err != nil {
 		s.serverError(w, err)
 		return
 	}
-	s.render(w, "customers.html", map[string]any{"Customers": customers})
+	s.render(w, r, "customers.html", map[string]any{"Customers": customers})
 }
 
 func (s *Server) handleCustomerNewForm(w http.ResponseWriter, r *http.Request) {
-	s.render(w, "customer_form.html", customerFormData{
-		IsNew:  true,
-		Action: "/customers",
-	})
+	s.render(w, r, "customer_form.html", customerFormData(customer.Customer{}, true, "/customers", ""))
 }
 
 func (s *Server) handleCustomerEditForm(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	c, err := s.store.GetCustomer(id)
-	if errors.Is(err, store.ErrNotFound) {
+	c, err := s.svc.Customer(id)
+	if errors.Is(err, invoicing.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}
@@ -45,28 +45,16 @@ func (s *Server) handleCustomerEditForm(w http.ResponseWriter, r *http.Request) 
 		s.serverError(w, err)
 		return
 	}
-	s.render(w, "customer_form.html", customerFormData{
-		Customer: c,
-		Action:   "/customers/" + url.PathEscape(id),
-	})
+	s.render(w, r, "customer_form.html", customerFormData(c, false, "/customers/"+url.PathEscape(id), ""))
 }
 
 func (s *Server) handleCustomerCreate(w http.ResponseWriter, r *http.Request) {
 	c, err := parseCustomerForm(r)
 	if err == nil {
-		var exists bool
-		exists, err = s.store.CustomerExists(c.ID)
-		if err == nil && exists {
-			err = fmt.Errorf("customer %s already exists", c.ID)
-		}
-	}
-	if err == nil {
-		err = s.store.SaveCustomer(c)
+		err = s.svc.CreateCustomer(c)
 	}
 	if err != nil {
-		s.render(w, "customer_form.html", customerFormData{
-			Customer: c, IsNew: true, Action: "/customers", Error: err.Error(),
-		})
+		s.render(w, r, "customer_form.html", customerFormData(c, true, "/customers", err.Error()))
 		return
 	}
 	http.Redirect(w, r, "/customers", http.StatusSeeOther)
@@ -74,33 +62,24 @@ func (s *Server) handleCustomerCreate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCustomerUpdate(w http.ResponseWriter, r *http.Request) {
 	oldID := r.PathValue("id")
-	if ok, err := s.store.CustomerExists(oldID); err != nil || !ok {
+	c, err := parseCustomerForm(r)
+	if err == nil {
+		err = s.svc.UpdateCustomer(oldID, c)
+	}
+	if errors.Is(err, invoicing.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}
-	c, err := parseCustomerForm(r)
-	if err == nil {
-		err = s.store.SaveCustomer(c)
-	}
 	if err != nil {
-		s.render(w, "customer_form.html", customerFormData{
-			Customer: c, Action: "/customers/" + url.PathEscape(oldID), Error: err.Error(),
-		})
+		s.render(w, r, "customer_form.html", customerFormData(c, false, "/customers/"+url.PathEscape(oldID), err.Error()))
 		return
-	}
-	// The ID doubles as the filename: renaming means save new, drop old.
-	if c.ID != oldID {
-		if err := s.store.DeleteCustomer(oldID); err != nil && !errors.Is(err, store.ErrNotFound) {
-			s.serverError(w, err)
-			return
-		}
 	}
 	http.Redirect(w, r, "/customers", http.StatusSeeOther)
 }
 
 func (s *Server) handleCustomerDelete(w http.ResponseWriter, r *http.Request) {
-	err := s.store.DeleteCustomer(r.PathValue("id"))
-	if errors.Is(err, store.ErrNotFound) {
+	err := s.svc.DeleteCustomer(r.PathValue("id"))
+	if errors.Is(err, invoicing.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}

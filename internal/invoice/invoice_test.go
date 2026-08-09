@@ -44,6 +44,11 @@ func TestValidateErrors(t *testing.T) {
 		{"negative price", func(i *Invoice) { i.Items[0].UnitPriceCents = -1 }, "item 1"},
 		{"negative tax rate", func(i *Invoice) { i.TaxRatePercent = -1 }, "tax rate"},
 		{"tax rate over 100", func(i *Invoice) { i.TaxRatePercent = 101 }, "tax rate"},
+		{"bad service date", func(i *Invoice) { i.ServiceDate = "07.08.2026" }, "service date"},
+		{"bad service period start", func(i *Invoice) { i.ServicePeriodStart = "x"; i.ServicePeriodEnd = "2026-08-31" }, "service period start"},
+		{"service period start without end", func(i *Invoice) { i.ServicePeriodStart = "2026-08-01" }, "both a start and an end"},
+		{"service period end without start", func(i *Invoice) { i.ServicePeriodEnd = "2026-08-31" }, "both a start and an end"},
+		{"service period end before start", func(i *Invoice) { i.ServicePeriodStart = "2026-08-31"; i.ServicePeriodEnd = "2026-08-01" }, "must not be before its start"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -57,6 +62,26 @@ func TestValidateErrors(t *testing.T) {
 				t.Fatalf("error %q does not mention %q", err, tc.wantMsg)
 			}
 		})
+	}
+}
+
+func TestValidateAcceptsServiceDates(t *testing.T) {
+	inv := validInvoice()
+	inv.ServiceDate = "2026-08-07"
+	if err := inv.Validate(); err != nil {
+		t.Fatalf("single service date rejected: %v", err)
+	}
+	inv = validInvoice()
+	inv.ServicePeriodStart = "2026-08-01"
+	inv.ServicePeriodEnd = "2026-08-31"
+	if err := inv.Validate(); err != nil {
+		t.Fatalf("service period rejected: %v", err)
+	}
+	if !inv.HasServicePeriod() {
+		t.Error("HasServicePeriod = false for a full period")
+	}
+	if validInvoice().HasServicePeriod() {
+		t.Error("HasServicePeriod = true without a period")
 	}
 }
 

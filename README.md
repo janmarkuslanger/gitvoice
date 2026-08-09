@@ -62,6 +62,13 @@ middleware, use `gitvoice.New(cfg)` and `app.Handler()`.
 - Company profile (Settings page): name, address, Steuernummer, USt-IdNr.,
   bank account — printed on every invoice as the issuer
 - VAT with a configurable rate per invoice (net / VAT / gross breakdown)
+- Time of supply (Leistungsdatum or Leistungszeitraum) per invoice, printed
+  on the sheet (§ 14 Abs. 4 Nr. 6 UStG)
+- Non-blocking § 14 UStG completeness check: the invoice view flags missing
+  mandatory details (issuer name/address, tax number or VAT ID, recipient
+  address, time of supply), while respecting the reduced set for
+  Kleinbetragsrechnungen up to 250 € gross (§ 33 UStDV)
+- UI language switch (German / English) with a default in the profile
 - Kleinunternehmerregelung (§ 19 UStG) toggle: when enabled, new invoices
   default to no VAT and print the § 19 note (text is configurable). The
   setting is snapshotted per invoice, so flipping it later never changes
@@ -79,16 +86,15 @@ middleware, use `gitvoice.New(cfg)` and `app.Handler()`.
 
 One JSON file per invoice under `<DataDir>/invoices/<number>.json`,
 pretty-printed so git diffs stay readable. Amounts are stored as integer
-cents (`unit_price_cents`) to avoid floating-point drift. Every file carries
-a `"schema": 1` field so future versions can migrate the format.
+cents (`unit_price_cents`) to avoid floating-point drift.
 
 ```json
 {
-  "schema": 1,
   "number": "2026-042",
   "date": "2026-08-07",
   "status": "sent",
   "currency": "EUR",
+  "service_date": "2026-08-05",
   "customer": { "name": "ACME GmbH" },
   "items": [
     { "description": "Consulting", "quantity": 2, "unit_price_cents": 9550 }
@@ -101,14 +107,30 @@ a `"schema": 1` field so future versions can migrate the format.
 The issuer profile lives in `<DataDir>/company.json` and is edited on the
 Settings page. Customers live in `<DataDir>/customers/<id>.json`.
 
+## German legal compliance
+
+gitvoice helps you produce invoices that meet the German § 14 UStG mandatory
+details, but it does not decide compliance for you — the completeness check is
+advisory and never blocks saving. Known scope and limitations:
+
+- **Retention (GoBD):** JSON files in git are editable, and history can be
+  rewritten, so the repository alone is not tamper-proof archival. Keep the
+  printed PDFs of issued invoices in your regular, unchangeable archive for the
+  full retention period (currently 8 years for invoices).
+- **One VAT rate per invoice:** invoices mixing e.g. 19 % and 7 % are not
+  supported yet.
+- **No e-invoicing:** output is PDF/print, not a structured e-invoice
+  (EN 16931 / XRechnung / ZUGFeRD). Domestic B2B issuing of e-invoices becomes
+  mandatory in 2027/2028; businesses under the Kleinunternehmerregelung (§ 19)
+  are exempt from *issuing* them.
+
+This is guidance, not legal or tax advice — verify your invoices with your tax
+advisor.
+
 ## Notes
 
 - The UI has no authentication. It binds to localhost by default; put a
   reverse proxy with auth in front before exposing it anywhere else.
-- Committing is left to you: edit invoices in the UI, then `git add data &&
-  git commit` as usual.
-- Pre-1.0: the Go API and on-disk schema may still change between minor
-  versions.
 
 ## License
 

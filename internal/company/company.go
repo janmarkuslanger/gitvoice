@@ -2,10 +2,6 @@
 // It is pure: no I/O, no HTTP, no filesystem.
 package company
 
-// CurrentSchema is written into the persisted profile so the on-disk
-// format can be migrated in later versions.
-const CurrentSchema = 1
-
 // DefaultSmallBusinessNote is the standard German § 19 UStG sentence,
 // printed on invoices when the small-business rule applies.
 const DefaultSmallBusinessNote = "Gemäß § 19 UStG wird keine Umsatzsteuer berechnet."
@@ -13,7 +9,6 @@ const DefaultSmallBusinessNote = "Gemäß § 19 UStG wird keine Umsatzsteuer ber
 // Company is the invoice issuer. All fields are optional: the profile can
 // be filled in incrementally and empty fields are simply not printed.
 type Company struct {
-	Schema    int    `json:"schema"`
 	Name      string `json:"name,omitempty"`
 	Address   string `json:"address,omitempty"`
 	Email     string `json:"email,omitempty"`
@@ -27,11 +22,14 @@ type Company struct {
 	// new invoices default to no VAT and carry SmallBusinessNote.
 	SmallBusiness     bool   `json:"small_business"`
 	SmallBusinessNote string `json:"small_business_note,omitempty"`
+	// Language is the default UI language code ("de", "en"). Empty means
+	// the application fallback; validation lives in the web layer.
+	Language string `json:"language,omitempty"`
 }
 
 // Default returns the profile used before the user saved one.
 func Default() Company {
-	return Company{Schema: CurrentSchema, SmallBusinessNote: DefaultSmallBusinessNote}
+	return Company{SmallBusinessNote: DefaultSmallBusinessNote}
 }
 
 // Note returns the § 19 UStG sentence to print, falling back to the default

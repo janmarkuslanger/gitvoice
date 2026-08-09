@@ -1,14 +1,14 @@
-{{define "title"}}Customers – gitvoice{{end}}
+{{define "title"}}{{t .Lang "customers.title"}} – gitvoice{{end}}
 {{define "content"}}
 <div class="actions">
-  <h1>Customers</h1>
+  <h1>{{t .Lang "customers.title"}}</h1>
   <span class="spacer"></span>
-  <a class="button" href="/customers/new">New customer</a>
+  <a class="button" href="/customers/new">{{t .Lang "customers.new"}}</a>
 </div>
 {{if .Customers}}
 <table>
   <thead>
-    <tr><th>ID</th><th>Company</th><th>Name</th><th>Email</th><th></th></tr>
+    <tr><th>{{t .Lang "th.id"}}</th><th>{{t .Lang "th.company"}}</th><th>{{t .Lang "th.name"}}</th><th>{{t .Lang "th.email"}}</th><th></th></tr>
   </thead>
   <tbody>
     {{range .Customers}}
@@ -19,8 +19,8 @@
       <td>{{.Email}}</td>
       <td class="num">
         <form method="post" action="/customers/{{.ID}}/delete"
-              onsubmit="return confirm('Delete customer {{.DisplayName}}? Existing invoices keep their copy of the data.')">
-          <button class="button danger" type="submit">Delete</button>
+              onsubmit="return confirm('{{printf (t $.Lang "customers.confirm_delete") .DisplayName}}')">
+          <button class="button danger" type="submit">{{t $.Lang "common.delete"}}</button>
         </form>
       </td>
     </tr>
@@ -28,6 +28,6 @@
   </tbody>
 </table>
 {{else}}
-<p class="empty">No customers yet. <a href="/customers/new">Create the first one.</a></p>
+<p class="empty">{{t .Lang "customers.empty"}} <a href="/customers/new">{{t .Lang "customers.create_first"}}</a></p>
 {{end}}
 {{end}}

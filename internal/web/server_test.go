@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/janmarkuslanger/gitvoice/internal/company"
+	"github.com/janmarkuslanger/gitvoice/internal/invoicing"
 	"github.com/janmarkuslanger/gitvoice/internal/store"
 )
 
@@ -17,7 +18,7 @@ func newTestServer(t *testing.T) *Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv, err := New(st)
+	srv, err := New(invoicing.New(st))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +95,7 @@ func TestInvoiceViewShowsCustomerDetails(t *testing.T) {
 		t.Fatalf("create: status = %d, body: %s", rec.Code, rec.Body.String())
 	}
 	body := get(t, srv, "/invoices/2026-001").Body.String()
-	for _, want := range []string{"ACME GmbH", "Max Muster", "USt-IdNr.: DE123456789"} {
+	for _, want := range []string{"ACME GmbH", "Max Muster", "VAT ID: DE123456789"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("view does not contain %q", want)
 		}
@@ -254,6 +255,81 @@ func TestSettingsSaveAndUseAsDefaults(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("invoice view does not contain %q", want)
 		}
+	}
+}
+
+func TestServiceDateRoundTripAndShown(t *testing.T) {
+	srv := newTestServer(t)
+	form := createForm()
+	form.Set("service_date", "2026-08-05")
+	if rec := postForm(t, srv, "/invoices", form); rec.Code != http.StatusSeeOther {
+		t.Fatalf("create: status = %d, body: %s", rec.Code, rec.Body.String())
+	}
+	body := get(t, srv, "/invoices/2026-001").Body.String()
+	if !strings.Contains(body, "Service date") || !strings.Contains(body, "2026-08-05") {
+		t.Error("service date not shown on invoice view")
+	}
+	// The value survives back into the edit form.
+	edit := get(t, srv, "/invoices/2026-001/edit").Body.String()
+	if !strings.Contains(edit, `name="service_date" value="2026-08-05"`) {
+		t.Error("service date not preserved in edit form")
+	}
+}
+
+func TestServicePeriodShownOverSingleDate(t *testing.T) {
+	srv := newTestServer(t)
+	form := createForm()
+	form.Set("service_date", "2026-08-05")
+	form.Set("service_period_start", "2026-08-01")
+	form.Set("service_period_end", "2026-08-31")
+	if rec := postForm(t, srv, "/invoices", form); rec.Code != http.StatusSeeOther {
+		t.Fatalf("create: status = %d, body: %s", rec.Code, rec.Body.String())
+	}
+	body := get(t, srv, "/invoices/2026-001").Body.String()
+	if !strings.Contains(body, "Service period") || !strings.Contains(body, "2026-08-01 – 2026-08-31") {
+		t.Error("service period not shown")
+	}
+}
+
+func TestComplianceWarningShownForIncompleteInvoice(t *testing.T) {
+	srv := newTestServer(t)
+	// createForm() has no service date, no recipient address, and the
+	// default profile has no issuer data; gross is 150 EUR... below 250, so
+	// only issuer name+address fire. Raise it above the small-amount limit.
+	form := createForm()
+	form.Set("item_price", "300,00")
+	if rec := postForm(t, srv, "/invoices", form); rec.Code != http.StatusSeeOther {
+		t.Fatalf("create: status = %d, body: %s", rec.Code, rec.Body.String())
+	}
+	body := get(t, srv, "/invoices/2026-001").Body.String()
+	for _, want := range []string{"Missing mandatory details", "Issuer name", "Recipient address", "Time of supply"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("compliance banner missing %q", want)
+		}
+	}
+
+	// German UI translates the warnings too.
+	de := getWithCookie(t, srv, "/invoices/2026-001", "de").Body.String()
+	for _, want := range []string{"Fehlende Pflichtangaben", "Leistungszeitpunkt"} {
+		if !strings.Contains(de, want) {
+			t.Errorf("German compliance banner missing %q", want)
+		}
+	}
+}
+
+func TestNoComplianceWarningWhenComplete(t *testing.T) {
+	srv := newTestServer(t)
+	postForm(t, srv, "/settings", url.Values{
+		"name": {"Jan Langer IT"}, "address": {"Musterstr. 1"}, "tax_number": {"12/345/67890"},
+	})
+	form := createForm()
+	form.Set("item_price", "300,00")
+	form.Set("customer_address", "Kundenweg 2")
+	form.Set("service_date", "2026-08-05")
+	postForm(t, srv, "/invoices", form)
+	body := get(t, srv, "/invoices/2026-001").Body.String()
+	if strings.Contains(body, "Missing mandatory details") {
+		t.Error("complete invoice should not show the compliance banner")
 	}
 }
 

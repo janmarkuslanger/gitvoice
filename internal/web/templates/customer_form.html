@@ -1,41 +1,41 @@
-{{define "title"}}{{if .IsNew}}New customer{{else}}Edit {{.Customer.DisplayName}}{{end}} – gitvoice{{end}}
+{{define "title"}}{{if .IsNew}}{{t .Lang "customer_form.title_new"}}{{else}}{{t .Lang "customer_form.title_edit"}} {{.Customer.DisplayName}}{{end}} – gitvoice{{end}}
 {{define "content"}}
-<h1>{{if .IsNew}}New customer{{else}}Edit customer {{.Customer.ID}}{{end}}</h1>
+<h1>{{if .IsNew}}{{t .Lang "customer_form.title_new"}}{{else}}{{t .Lang "customer_form.title_edit"}} {{.Customer.ID}}{{end}}</h1>
 
 {{if .Error}}<div class="error">{{nl2br .Error}}</div>{{end}}
 
 <form method="post" action="{{.Action}}">
   <fieldset>
-    <legend>Customer</legend>
+    <legend>{{t .Lang "form.legend_customer"}}</legend>
     <div class="grid">
-      <label>ID (short name, used as filename) <input name="id" value="{{.Customer.ID}}" required></label>
-      <label>Company <input name="company" value="{{.Customer.Company}}"></label>
+      <label>{{t .Lang "customer_form.id"}} <input name="id" value="{{.Customer.ID}}" required></label>
+      <label>{{t .Lang "form.company"}} <input name="company" value="{{.Customer.Company}}"></label>
     </div>
     <div class="grid">
-      <label>First name <input name="first_name" value="{{.Customer.FirstName}}"></label>
-      <label>Last name <input name="last_name" value="{{.Customer.LastName}}"></label>
+      <label>{{t .Lang "form.first_name"}} <input name="first_name" value="{{.Customer.FirstName}}"></label>
+      <label>{{t .Lang "form.last_name"}} <input name="last_name" value="{{.Customer.LastName}}"></label>
     </div>
-    <p class="hint">Company or last name is required.</p>
+    <p class="hint">{{t .Lang "form.name_hint"}}</p>
   </fieldset>
 
   <fieldset>
-    <legend>Contact</legend>
+    <legend>{{t .Lang "customer_form.legend_contact"}}</legend>
     <div class="grid">
-      <label>Email <input type="email" name="email" value="{{.Customer.Email}}"></label>
-      <label>Phone <input name="phone" value="{{.Customer.Phone}}"></label>
-      <label>VAT ID (USt-IdNr.) <input name="vat_id" value="{{.Customer.VATID}}"></label>
+      <label>{{t .Lang "form.email"}} <input type="email" name="email" value="{{.Customer.Email}}"></label>
+      <label>{{t .Lang "form.phone"}} <input name="phone" value="{{.Customer.Phone}}"></label>
+      <label>{{t .Lang "form.vat_id"}} <input name="vat_id" value="{{.Customer.VATID}}"></label>
     </div>
-    <label>Address <textarea name="address" rows="3">{{.Customer.Address}}</textarea></label>
+    <label>{{t .Lang "form.address"}} <textarea name="address" rows="3">{{.Customer.Address}}</textarea></label>
   </fieldset>
 
   <fieldset>
-    <legend>Notes (internal, never printed on invoices)</legend>
+    <legend>{{t .Lang "customer_form.legend_notes"}}</legend>
     <textarea name="notes" rows="3">{{.Customer.Notes}}</textarea>
   </fieldset>
 
   <div class="actions">
-    <button class="button primary" type="submit">Save</button>
-    <a href="/customers">Cancel</a>
+    <button class="button primary" type="submit">{{t .Lang "common.save"}}</button>
+    <a href="/customers">{{t .Lang "common.cancel"}}</a>
   </div>
 </form>
 {{end}}

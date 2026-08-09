@@ -5,15 +5,16 @@ import (
 	"strings"
 
 	"github.com/janmarkuslanger/gitvoice/internal/company"
+	"github.com/janmarkuslanger/gitvoice/internal/i18n"
 )
 
 func (s *Server) handleSettingsForm(w http.ResponseWriter, r *http.Request) {
-	comp, err := s.store.Company()
+	comp, err := s.svc.Company()
 	if err != nil {
 		s.serverError(w, err)
 		return
 	}
-	s.render(w, "settings.html", map[string]any{
+	s.render(w, r, "settings.html", map[string]any{
 		"Company": comp,
 		"Saved":   r.URL.Query().Get("saved") != "",
 	})
@@ -37,7 +38,11 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 		SmallBusiness:     r.PostFormValue("small_business") != "",
 		SmallBusinessNote: strings.TrimSpace(r.PostFormValue("small_business_note")),
 	}
-	if err := s.store.SaveCompany(c); err != nil {
+	// Unsupported codes are dropped: the profile then falls back to English.
+	if lang, ok := i18n.Parse(r.PostFormValue("language")); ok {
+		c.Language = lang
+	}
+	if err := s.svc.SaveCompany(c); err != nil {
 		s.serverError(w, err)
 		return
 	}
