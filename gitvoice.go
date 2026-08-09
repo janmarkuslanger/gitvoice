@@ -16,13 +16,20 @@
 package gitvoice
 
 import (
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 
+	"github.com/janmarkuslanger/gitvoice/internal/cli"
 	"github.com/janmarkuslanger/gitvoice/internal/invoicing"
 	"github.com/janmarkuslanger/gitvoice/internal/store"
 	"github.com/janmarkuslanger/gitvoice/internal/web"
 )
+
+// CLIUsage is the help text of the command line, for wrappers that want to
+// print it alongside their own flags. See cmd/gitvoice.
+const CLIUsage = cli.Usage
 
 // Config controls where data lives and where the UI is served.
 // The zero value is usable: data in ./data, UI on :8080.
@@ -47,6 +54,7 @@ func (c Config) withDefaults() Config {
 // App is a configured gitvoice instance.
 type App struct {
 	cfg     Config
+	svc     *invoicing.Service
 	handler http.Handler
 }
 
@@ -57,11 +65,12 @@ func New(cfg Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	srv, err := web.New(invoicing.New(st))
+	svc := invoicing.New(st)
+	srv, err := web.New(svc)
 	if err != nil {
 		return nil, err
 	}
-	return &App{cfg: cfg, handler: srv}, nil
+	return &App{cfg: cfg, svc: svc, handler: srv}, nil
 }
 
 // Handler returns the UI as an http.Handler, for mounting into an existing
@@ -83,4 +92,22 @@ func Run(cfg Config) error {
 		return err
 	}
 	return app.Run()
+}
+
+// CLI runs one command line ("customer add …", "invoice add …", "serve")
+// against the app's data directory and returns the process exit code:
+// 0 on success, 1 when the command failed, 2 when it was invoked wrongly.
+func (a *App) CLI(args []string, out, errOut io.Writer) int {
+	return cli.Runner{Svc: a.svc, Serve: a.Run, Out: out, Err: errOut}.Run(args)
+}
+
+// RunCLI is the one-call CLI entry point: New + App.CLI. Pass it the
+// arguments after your own global flags and exit with the code it returns.
+func RunCLI(cfg Config, args []string, out, errOut io.Writer) int {
+	app, err := New(cfg)
+	if err != nil {
+		fmt.Fprintf(errOut, "gitvoice: %v\n", err)
+		return 1
+	}
+	return app.CLI(args, out, errOut)
 }

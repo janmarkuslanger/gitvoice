@@ -55,10 +55,48 @@ The zero value `gitvoice.Config{}` works too (data in `./data`, UI on
 `127.0.0.1:8080`). For mounting into an existing server or adding auth
 middleware, use `gitvoice.New(cfg)` and `app.Handler()`.
 
+## Command line
+
+Everything the UI writes can also be written from a terminal or a script —
+same data directory, same rules, same JSON files.
+
+```sh
+go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice help
+
+# add a customer to the master data
+go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice customer add \
+  -id acme -company "ACME GmbH" \
+  -address 'Musterstraße 1\n12345 Berlin' -vat-id DE123456789
+
+# write an invoice for that customer
+go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice invoice add \
+  -number 2026-001 -customer acme -due-date 2026-08-23 \
+  -item 'Consulting;3;120.00' -item 'Travel;1;49,50'
+
+# serve the web UI
+go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice serve
+```
+
+- Global flags come before the command: `-data <dir>` (default `data`) and
+  `-addr <host:port>` for `serve`.
+- `-item` takes `description;quantity;unit price` and can be repeated. The
+  quantity and price are read from the end, so a description may contain `;`.
+- `-customer <id>` copies the recipient from the master data; the
+  `-customer-*` flags fill in or override single fields, as in the web form.
+- Date, currency, VAT rate and the small-business rule default exactly like a
+  new invoice in the UI: from today's date and your company profile.
+- `\n` in `-address` and `-notes` becomes a real line break.
+- Exit codes: `0` success, `1` the command failed, `2` wrong invocation.
+
+To get the same commands from your own binary, call
+`gitvoice.RunCLI(cfg, args, os.Stdout, os.Stderr)`.
+
 ## Features
 
 - Create, edit, and delete invoices in a plain, dependency-free web UI
   (embedded in the binary — no assets to deploy)
+- A command line for the same job: `customer add`, `invoice add`, `serve`
+  (see [Command line](#command-line))
 - Company profile (Settings page): name, address, Steuernummer, USt-IdNr.,
   bank account — printed on every invoice as the issuer
 - VAT with a configurable rate per invoice (net / VAT / gross breakdown)

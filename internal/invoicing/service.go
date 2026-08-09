@@ -131,6 +131,24 @@ func (s *Service) Customer(id string) (customer.Customer, error) {
 	return s.store.GetCustomer(id)
 }
 
+// CustomerSnapshot returns the invoice-side copy of a customer's master
+// data: the fields the invoice form prefills when a customer is selected.
+// Missing customers return ErrNotFound.
+func (s *Service) CustomerSnapshot(id string) (invoice.Customer, error) {
+	c, err := s.store.GetCustomer(id)
+	if err != nil {
+		return invoice.Customer{}, err
+	}
+	return invoice.Customer{
+		Company:   c.Company,
+		FirstName: c.FirstName,
+		LastName:  c.LastName,
+		Address:   c.Address,
+		Email:     c.Email,
+		VATID:     c.VATID,
+	}, nil
+}
+
 // Customers returns all customers sorted by display name.
 func (s *Service) Customers() ([]customer.Customer, error) {
 	return s.store.ListCustomers()

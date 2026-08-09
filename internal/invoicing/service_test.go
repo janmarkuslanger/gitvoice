@@ -149,6 +149,36 @@ func TestUpdateCustomerMissing(t *testing.T) {
 	}
 }
 
+func TestCustomerSnapshotCopiesPrintedFieldsOnly(t *testing.T) {
+	svc := newTestService(t)
+	c := customer.Customer{
+		ID: "acme", Company: "ACME GmbH", FirstName: "Max", LastName: "Muster",
+		Address: "Musterstraße 1", Email: "billing@acme.example",
+		Phone: "+49 30 123456", VATID: "DE123456789", Notes: "prefers email",
+	}
+	if err := svc.CreateCustomer(c); err != nil {
+		t.Fatal(err)
+	}
+	got, err := svc.CustomerSnapshot("acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := invoice.Customer{
+		Company: "ACME GmbH", FirstName: "Max", LastName: "Muster",
+		Address: "Musterstraße 1", Email: "billing@acme.example", VATID: "DE123456789",
+	}
+	if got != want {
+		t.Errorf("snapshot = %+v, want %+v (phone and notes stay master data)", got, want)
+	}
+}
+
+func TestCustomerSnapshotMissing(t *testing.T) {
+	svc := newTestService(t)
+	if _, err := svc.CustomerSnapshot("nope"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v, want ErrNotFound", err)
+	}
+}
+
 func TestGeneratePDFFilesAndReturnsBytes(t *testing.T) {
 	svc := newTestService(t)
 	if err := svc.CreateInvoice(testInvoice("2026-001")); err != nil {
