@@ -348,3 +348,31 @@ func TestNewFormRenders(t *testing.T) {
 		t.Fatalf("new form: status = %d", rec.Code)
 	}
 }
+
+func TestPDFDownload(t *testing.T) {
+	srv := newTestServer(t)
+	if rec := postForm(t, srv, "/invoices", createForm()); rec.Code != http.StatusSeeOther {
+		t.Fatalf("create: status = %d", rec.Code)
+	}
+
+	rec := get(t, srv, "/invoices/2026-001/pdf")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("pdf: status = %d, body: %s", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/pdf" {
+		t.Errorf("Content-Type = %q, want application/pdf", ct)
+	}
+	if cd := rec.Header().Get("Content-Disposition"); !strings.Contains(cd, "2026-001.pdf") {
+		t.Errorf("Content-Disposition = %q, want filename 2026-001.pdf", cd)
+	}
+	if !strings.HasPrefix(rec.Body.String(), "%PDF-") {
+		t.Errorf("body is not a PDF (len=%d)", rec.Body.Len())
+	}
+}
+
+func TestPDFMissingInvoice(t *testing.T) {
+	srv := newTestServer(t)
+	if rec := get(t, srv, "/invoices/nope/pdf"); rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}

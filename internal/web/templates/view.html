@@ -5,6 +5,7 @@
   <span class="spacer"></span>
   <a class="button" href="/invoices/{{.Invoice.Number}}/edit">{{t .Lang "common.edit"}}</a>
   <button class="button" onclick="window.print()">{{t .Lang "view.print"}}</button>
+  <a class="button" href="/invoices/{{.Invoice.Number}}/pdf">{{t .Lang "view.pdf"}}</a>
   <form method="post" action="/invoices/{{.Invoice.Number}}/delete"
         onsubmit="return confirm('{{printf (t .Lang "view.confirm_delete") .Invoice.Number}}')">
     <button class="button danger" type="submit">{{t .Lang "common.delete"}}</button>

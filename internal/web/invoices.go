@@ -43,6 +43,24 @@ func (s *Server) handleView(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handlePDF(w http.ResponseWriter, r *http.Request) {
+	number := r.PathValue("number")
+	data, err := s.svc.GeneratePDF(number, s.lang(r))
+	if errors.Is(err, invoicing.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		s.serverError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, number+".pdf"))
+	if _, err := w.Write(data); err != nil {
+		s.serverError(w, err)
+	}
+}
+
 // invoiceForm assembles the render data for the invoice form, loading the
 // customer master data for the customer select.
 func (s *Server) invoiceForm(inv invoice.Invoice, isNew bool, action, errMsg string) (map[string]any, error) {
