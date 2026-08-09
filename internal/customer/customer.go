@@ -10,10 +10,6 @@ import (
 	"strings"
 )
 
-// CurrentSchema is written into every persisted customer so the on-disk
-// format can be migrated in later versions.
-const CurrentSchema = 1
-
 // idPattern keeps IDs safe to use as filenames: no path separators, no
 // leading dot, bounded length. (Same rule as invoice numbers.)
 var idPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$`)
@@ -29,7 +25,6 @@ func ValidID(s string) bool {
 //
 // Phone and Notes are master-data only: they are never copied onto invoices.
 type Customer struct {
-	Schema    int    `json:"schema"`
 	ID        string `json:"id"`
 	Company   string `json:"company,omitempty"`
 	FirstName string `json:"first_name,omitempty"`

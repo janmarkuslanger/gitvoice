@@ -24,6 +24,11 @@ main { max-width: 60rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
 }
 .brand { font-weight: 700; color: var(--fg); text-decoration: none; }
 
+.lang-switch { margin-left: 0.6rem; font-size: 0.85rem; }
+.lang-switch a { color: var(--muted); text-decoration: none; padding: 0.1rem 0.3rem; }
+.lang-switch a.active { color: var(--fg); font-weight: 700; }
+.lang-switch a + a { border-left: 1px solid var(--border); }
+
 a { color: var(--accent); }
 h1 { font-size: 1.4rem; }
 h2 { font-size: 1rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
@@ -77,6 +82,13 @@ input, select, textarea {
   border: 1px solid var(--danger); color: var(--danger); background: #fee;
   padding: 0.6rem 0.8rem; border-radius: 4px; margin-bottom: 1rem; white-space: pre-line;
 }
+
+.warning {
+  border: 1px solid #b80; color: #850; background: #fff8e6;
+  padding: 0.6rem 0.8rem; border-radius: 4px; margin-bottom: 1rem;
+}
+.warning ul { margin: 0.3rem 0 0; padding-left: 1.2rem; }
+.warning strong { color: var(--fg); }
 .empty { color: var(--muted); }
 
 .invoice-sheet { background: #fff; border: 1px solid var(--border); padding: 2rem; }

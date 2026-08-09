@@ -71,7 +71,6 @@ func (s *Store) SaveCustomer(c customer.Customer) error {
 	if err := c.Validate(); err != nil {
 		return err
 	}
-	c.Schema = customer.CurrentSchema
 	p, err := s.customerPath(c.ID)
 	if err != nil {
 		return err

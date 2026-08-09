@@ -33,7 +33,6 @@ func (s *Store) Company() (company.Company, error) {
 
 // SaveCompany writes the issuer profile.
 func (s *Store) SaveCompany(c company.Company) error {
-	c.Schema = company.CurrentSchema
 	if err := s.writeJSON(s.companyPath(), c); err != nil {
 		return fmt.Errorf("write company profile: %w", err)
 	}

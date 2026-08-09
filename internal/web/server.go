@@ -1,4 +1,4 @@
-// Package web serves the embedded UI over the store.
+// Package web serves the embedded UI over the invoicing service.
 package web
 
 import (
@@ -10,7 +10,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/janmarkuslanger/gitvoice/internal/store"
+	"github.com/janmarkuslanger/gitvoice/internal/i18n"
+	"github.com/janmarkuslanger/gitvoice/internal/invoicing"
+	"github.com/janmarkuslanger/gitvoice/internal/money"
 )
 
 //go:embed templates/*.html
@@ -21,14 +23,15 @@ var staticFS embed.FS
 
 // Server holds the parsed templates and routes.
 type Server struct {
-	store *store.Store
+	svc   *invoicing.Service
 	mux   *http.ServeMux
 	pages map[string]*template.Template
 }
 
 var funcs = template.FuncMap{
-	"money": FormatCents,
-	"qty":   formatQuantity,
+	"money": money.FormatCents,
+	"qty":   money.FormatQuantity,
+	"t":     i18n.T,
 	"nl2br": func(s string) template.HTML {
 		escaped := template.HTMLEscapeString(s)
 		return template.HTML(strings.ReplaceAll(escaped, "\n", "<br>"))
@@ -37,7 +40,7 @@ var funcs = template.FuncMap{
 
 // New builds the server. Template parsing errors are programmer errors in
 // the embedded UI, so they surface immediately.
-func New(st *store.Store) (*Server, error) {
+func New(svc *invoicing.Service) (*Server, error) {
 	pages := make(map[string]*template.Template)
 	pageNames := []string{
 		"list.html", "view.html", "form.html", "settings.html",
@@ -50,7 +53,7 @@ func New(st *store.Store) (*Server, error) {
 		}
 		pages[name] = t
 	}
-	s := &Server{store: st, mux: http.NewServeMux(), pages: pages}
+	s := &Server{svc: svc, mux: http.NewServeMux(), pages: pages}
 
 	static, err := fs.Sub(staticFS, "static")
 	if err != nil {
@@ -72,6 +75,7 @@ func New(st *store.Store) (*Server, error) {
 	s.mux.HandleFunc("POST /customers/{id}/delete", s.handleCustomerDelete)
 	s.mux.HandleFunc("GET /settings", s.handleSettingsForm)
 	s.mux.HandleFunc("POST /settings", s.handleSettingsSave)
+	s.mux.HandleFunc("GET /lang/{code}", s.handleLangSwitch)
 	return s, nil
 }
 
@@ -79,7 +83,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-func (s *Server) render(w http.ResponseWriter, page string, data any) {
+// render executes a page in the layout, adding the request-scoped language
+// and current path (used by the language switcher to return to the page).
+func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, data map[string]any) {
+	data["Lang"] = s.lang(r)
+	data["Path"] = r.URL.RequestURI()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := s.pages[page].ExecuteTemplate(w, "layout", data); err != nil {
 		log.Printf("gitvoice: render %s: %v", page, err)

@@ -28,9 +28,6 @@ func TestCustomerRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Schema != customer.CurrentSchema {
-		t.Errorf("schema = %d, want %d", got.Schema, customer.CurrentSchema)
-	}
 	if got.Company != want.Company || got.FirstName != want.FirstName ||
 		got.LastName != want.LastName || got.Address != want.Address ||
 		got.Email != want.Email || got.Phone != want.Phone ||

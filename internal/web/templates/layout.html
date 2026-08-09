@@ -1,5 +1,5 @@
 {{define "layout"}}<!DOCTYPE html>
-<html lang="en">
+<html lang="{{.Lang}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,7 +9,14 @@
 <body>
 <header class="topbar no-print">
   <a class="brand" href="/">gitvoice</a>
-  <nav><a href="/customers">Customers</a> <a href="/settings">Settings</a> <a class="button" href="/invoices/new">New invoice</a></nav>
+  <nav>
+    <a href="/customers">{{t .Lang "nav.customers"}}</a>
+    <a href="/settings">{{t .Lang "nav.settings"}}</a>
+    <a class="button" href="/invoices/new">{{t .Lang "nav.new_invoice"}}</a>
+    <span class="lang-switch">
+      <a href="/lang/de?back={{.Path}}"{{if eq .Lang "de"}} class="active"{{end}}>DE</a><a href="/lang/en?back={{.Path}}"{{if eq .Lang "en"}} class="active"{{end}}>EN</a>
+    </span>
+  </nav>
 </header>
 <main>
 {{block "content" .}}{{end}}
