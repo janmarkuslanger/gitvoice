@@ -47,7 +47,6 @@ func runOn(r Runner, args ...string) int {
 
 func TestCustomerAdd(t *testing.T) {
 	res := run(t, "customer", "add",
-		"-id", "acme",
 		"-company", "ACME GmbH",
 		"-first-name", "Max",
 		"-last-name", "Muster",
@@ -60,15 +59,15 @@ func TestCustomerAdd(t *testing.T) {
 	if res.code != 0 {
 		t.Fatalf("exit = %d, stderr: %s", res.code, res.err)
 	}
-	if !strings.Contains(res.out, "customer acme created") {
-		t.Errorf("stdout = %q, want a confirmation", res.out)
+	if !strings.Contains(res.out, "customer acme-gmbh created") {
+		t.Errorf("stdout = %q, want a confirmation naming the derived id", res.out)
 	}
-	got, err := res.svc.Customer("acme")
+	got, err := res.svc.Customer("acme-gmbh")
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := customer.Customer{
-		ID: "acme", Company: "ACME GmbH", FirstName: "Max", LastName: "Muster",
+		ID: "acme-gmbh", Company: "ACME GmbH", FirstName: "Max", LastName: "Muster",
 		Address: "Musterstraße 1\n12345 Berlin", Email: "billing@acme.example",
 		Phone: "+49 30 123456", VATID: "DE123456789", Notes: "prefers email",
 	}
@@ -118,30 +117,63 @@ func TestCustomerAddRejectsMissingName(t *testing.T) {
 	}
 }
 
-func TestCustomerAddRejectsDuplicate(t *testing.T) {
-	r, _, _, errOut := newRunner(t)
-	if code := runOn(r, "customer", "add", "-id", "acme", "-company", "ACME GmbH"); code != 0 {
-		t.Fatalf("first add: exit = %d, stderr: %s", code, errOut.String())
+func TestCustomerList(t *testing.T) {
+	r, _, out, errOut := newRunner(t)
+	if code := runOn(r, "customer", "list"); code != 0 {
+		t.Fatalf("empty list: exit = %d, stderr: %s", code, errOut.String())
 	}
-	if code := runOn(r, "customer", "add", "-id", "acme", "-company", "Other"); code != 1 {
-		t.Fatalf("second add: exit = %d, want 1", code)
+	if !strings.Contains(out.String(), "no customers yet") {
+		t.Errorf("stdout = %q, want a note that there is nothing yet", out.String())
 	}
-	if !strings.Contains(errOut.String(), "already exists") {
-		t.Errorf("stderr = %q, want the duplicate message", errOut.String())
+
+	for _, args := range [][]string{
+		{"-company", "ACME GmbH", "-email", "billing@acme.example"},
+		{"-first-name", "Max", "-last-name", "Muster"},
+	} {
+		if code := runOn(r, append([]string{"customer", "add"}, args...)...); code != 0 {
+			t.Fatalf("add: exit = %d, stderr: %s", code, errOut.String())
+		}
+	}
+	out.Reset()
+	if code := runOn(r, "customer", "list"); code != 0 {
+		t.Fatalf("list: exit = %d, stderr: %s", code, errOut.String())
+	}
+
+	lines := strings.Split(strings.TrimRight(out.String(), "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("got %d lines, want a header and two customers:\n%s", len(lines), out.String())
+	}
+	for i, want := range []string{
+		"ID", "COMPANY", "NAME", "EMAIL",
+	} {
+		if !strings.Contains(lines[0], want) {
+			t.Errorf("header column %d (%q) missing from %q", i, want, lines[0])
+		}
+	}
+	// ListCustomers sorts by display name: "ACME GmbH" before "Max Muster".
+	for _, want := range []string{"acme-gmbh", "ACME GmbH", "billing@acme.example"} {
+		if !strings.Contains(lines[1], want) {
+			t.Errorf("row %q does not contain %q", lines[1], want)
+		}
+	}
+	for _, want := range []string{"max-muster", "Max Muster"} {
+		if !strings.Contains(lines[2], want) {
+			t.Errorf("row %q does not contain %q", lines[2], want)
+		}
 	}
 }
 
 func TestInvoiceAddCopiesCustomerAndDefaults(t *testing.T) {
 	r, svc, out, errOut := newRunner(t)
 	if _, err := svc.CreateCustomer(customer.Customer{
-		ID: "acme", Company: "ACME GmbH", Address: "Musterstraße 1", VATID: "DE123456789",
+		Company: "ACME GmbH", Address: "Musterstraße 1", VATID: "DE123456789",
 		Phone: "+49 30 123456", Notes: "internal",
 	}); err != nil {
 		t.Fatal(err)
 	}
 	code := runOn(r, "invoice", "add",
 		"-number", "2026-001",
-		"-customer", "acme",
+		"-customer", "acme-gmbh",
 		"-item", "Consulting;3;120.00",
 		"-item", "Travel;1;49,50",
 	)
@@ -225,11 +257,11 @@ func TestInvoiceAddWithoutMasterData(t *testing.T) {
 
 func TestInvoiceAddOverridesLoadedCustomer(t *testing.T) {
 	r, svc, _, errOut := newRunner(t)
-	if _, err := svc.CreateCustomer(customer.Customer{ID: "acme", Company: "ACME GmbH", Email: "old@acme.example"}); err != nil {
+	if _, err := svc.CreateCustomer(customer.Customer{Company: "ACME GmbH", Email: "old@acme.example"}); err != nil {
 		t.Fatal(err)
 	}
 	code := runOn(r, "invoice", "add",
-		"-number", "2026-003", "-customer", "acme",
+		"-number", "2026-003", "-customer", "acme-gmbh",
 		"-customer-email", "new@acme.example",
 		"-item", "Consulting;1;100.00",
 	)
@@ -352,10 +384,12 @@ func TestUsageErrors(t *testing.T) {
 	}{
 		{"no arguments", nil, "Usage:"},
 		{"unknown command", []string{"nope"}, `unknown command "nope"`},
-		{"unknown subcommand", []string{"customer", "remove"}, "usage: gitvoice customer add"},
+		{"unknown subcommand", []string{"customer", "remove"}, `unknown customer command "remove"`},
+		{"missing customer subcommand", []string{"customer"}, "usage: gitvoice customer <add|list>"},
 		{"missing subcommand", []string{"invoice"}, "usage: gitvoice invoice add"},
 		{"unknown flag", []string{"customer", "add", "-nope"}, "not defined"},
-		{"stray argument", []string{"customer", "add", "acme"}, `unexpected argument "acme"`},
+		{"id is not a flag", []string{"customer", "add", "-id", "acme"}, "not defined"},
+		{"stray argument", []string{"customer", "list", "acme"}, `unexpected argument "acme"`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -375,7 +409,7 @@ func TestHelp(t *testing.T) {
 	if res.code != 0 {
 		t.Fatalf("exit = %d, want 0", res.code)
 	}
-	for _, want := range []string{"customer add", "invoice add", "serve"} {
+	for _, want := range []string{"customer add", "customer list", "invoice add", "serve"} {
 		if !strings.Contains(res.out, want) {
 			t.Errorf("help does not mention %q", want)
 		}

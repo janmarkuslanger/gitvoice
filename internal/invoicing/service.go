@@ -169,37 +169,30 @@ func (s *Service) Customers() ([]customer.Customer, error) {
 // hundred customers share one name, which is a data problem, not a retry.
 const maxIDAttempts = 100
 
-// CreateCustomer validates and saves a new customer and returns the stored
-// record, whose ID the caller needs to report or link to.
+// CreateCustomer saves a new customer under an ID derived from its name
+// ("ACME GmbH" becomes "acme-gmbh", with a counter appended while that ID is
+// taken) and returns the stored record, whose ID the caller needs to report
+// or link to.
 //
-// An empty ID is derived from the customer's name ("ACME GmbH" becomes
-// "acme-gmbh"), with a counter appended while that ID is taken. A given ID
-// is used as-is and must be free.
+// The ID on the argument is ignored: IDs are derived here and nowhere else,
+// so no caller can put two customers on the same file or invent an ID that
+// does not match the name.
 func (s *Service) CreateCustomer(c customer.Customer) (customer.Customer, error) {
-	if c.ID == "" {
-		// Without a name there is no id to derive, and reporting the empty
-		// id on top of the missing name would only point at the wrong field.
-		if c.DisplayName() == "" {
-			return customer.Customer{}, customer.ErrNoName
-		}
-		id, err := s.freeCustomerID(customer.SlugID(c.DisplayName()))
-		if err != nil {
-			return customer.Customer{}, err
-		}
-		if id == "" {
-			return customer.Customer{}, fmt.Errorf("cannot derive an id from %q, please enter one", c.DisplayName())
-		}
-		c.ID = id
+	if c.DisplayName() == "" {
+		// Reporting the empty ID on top of this would point at a field the
+		// user cannot fill in anyway.
+		return customer.Customer{}, customer.ErrNoName
 	}
-	if err := c.Validate(); err != nil {
-		return customer.Customer{}, err
-	}
-	exists, err := s.store.CustomerExists(c.ID)
+	id, err := s.freeCustomerID(customer.SlugID(c.DisplayName()))
 	if err != nil {
 		return customer.Customer{}, err
 	}
-	if exists {
-		return customer.Customer{}, fmt.Errorf("customer %s: %w", c.ID, ErrExists)
+	if id == "" {
+		return customer.Customer{}, fmt.Errorf("cannot derive an id from %q: the name needs letters or digits", c.DisplayName())
+	}
+	c.ID = id
+	if err := c.Validate(); err != nil {
+		return customer.Customer{}, err
 	}
 	if err := s.store.SaveCustomer(c); err != nil {
 		return customer.Customer{}, err
@@ -227,41 +220,25 @@ func (s *Service) freeCustomerID(base string) (string, error) {
 	return "", fmt.Errorf("no free customer id derived from %q after %d attempts", base, maxIDAttempts)
 }
 
-// UpdateCustomer replaces the customer stored under oldID and returns the
-// stored record. The ID doubles as the filename: a rename saves the new file
-// and drops the old, and renaming onto a taken ID returns ErrExists rather
-// than overwriting the customer sitting there.
+// UpdateCustomer replaces the customer stored under id and returns the
+// stored record. The ID on the argument is ignored, so an edit can never
+// move a customer onto another one's file.
 //
-// An empty ID keeps oldID. Unlike on create there is a current ID to fall
-// back to, and silently renaming the file because a field was cleared would
-// be the more surprising answer.
-func (s *Service) UpdateCustomer(oldID string, c customer.Customer) (customer.Customer, error) {
-	exists, err := s.store.CustomerExists(oldID)
+// The ID is assigned once at creation and then stays put, even when the name
+// it was derived from changes: it doubles as the file name, and rewriting it
+// on every name correction would move the file through the git history for
+// no gain. Missing customers return ErrNotFound.
+func (s *Service) UpdateCustomer(id string, c customer.Customer) (customer.Customer, error) {
+	exists, err := s.store.CustomerExists(id)
 	if err != nil {
 		return customer.Customer{}, err
 	}
 	if !exists {
-		return customer.Customer{}, fmt.Errorf("%w: customer %s", ErrNotFound, oldID)
+		return customer.Customer{}, fmt.Errorf("%w: customer %s", ErrNotFound, id)
 	}
-	if c.ID == "" {
-		c.ID = oldID
-	}
-	if c.ID != oldID {
-		taken, err := s.store.CustomerExists(c.ID)
-		if err != nil {
-			return customer.Customer{}, err
-		}
-		if taken {
-			return customer.Customer{}, fmt.Errorf("customer %s: %w", c.ID, ErrExists)
-		}
-	}
+	c.ID = id
 	if err := s.store.SaveCustomer(c); err != nil {
 		return customer.Customer{}, err
-	}
-	if c.ID != oldID {
-		if err := s.store.DeleteCustomer(oldID); err != nil && !errors.Is(err, ErrNotFound) {
-			return customer.Customer{}, err
-		}
 	}
 	return c, nil
 }

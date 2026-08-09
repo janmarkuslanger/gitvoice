@@ -103,9 +103,8 @@ var en = map[string]string{
 	"customer_form.title_new":      "New customer",
 	"customer_form.title_edit":     "Edit customer",
 	"customer_form.legend_contact": "Contact",
-	"customer_form.id":             "ID (short name, used as filename)",
-	"customer_form.id_hint_new":    "Leave the ID empty and it is derived from the name: \"ACME GmbH\" becomes \"acme-gmbh\".",
-	"customer_form.id_hint_edit":   "Leave the ID empty to keep the current one. Changing it renames the file; existing invoices keep their copy of the data.",
+	"customer_form.id_hint_new":    "The ID is derived from the name: \"ACME GmbH\" becomes \"acme-gmbh\". It is also the filename.",
+	"customer_form.id_hint_edit":   "ID: %s. It is assigned once and stays fixed, even when the name changes, because it is the filename.",
 	"customer_form.legend_notes":   "Notes (internal, never printed on invoices)",
 
 	"settings.title":               "Settings",
@@ -222,9 +221,8 @@ var de = map[string]string{
 	"customer_form.title_new":      "Neuer Kunde",
 	"customer_form.title_edit":     "Kunde bearbeiten:",
 	"customer_form.legend_contact": "Kontakt",
-	"customer_form.id":             "ID (Kurzname, wird als Dateiname verwendet)",
-	"customer_form.id_hint_new":    "ID leer lassen: Sie wird aus dem Namen erzeugt, aus „ACME GmbH“ wird „acme-gmbh“.",
-	"customer_form.id_hint_edit":   "ID leer lassen, um die bisherige zu behalten. Eine Änderung benennt die Datei um; bestehende Rechnungen behalten ihre Kopie der Daten.",
+	"customer_form.id_hint_new":    "Die ID wird aus dem Namen erzeugt, aus „ACME GmbH“ wird „acme-gmbh“. Sie ist zugleich der Dateiname.",
+	"customer_form.id_hint_edit":   "ID: %s. Sie wird einmal vergeben und bleibt bestehen, auch wenn sich der Name ändert, denn sie ist der Dateiname.",
 	"customer_form.legend_notes":   "Anmerkungen (intern, erscheinen nie auf Rechnungen)",
 
 	"settings.title":               "Einstellungen",

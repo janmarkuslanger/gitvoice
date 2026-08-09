@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/janmarkuslanger/gitvoice/internal/customer"
@@ -26,10 +27,11 @@ Usage:
   gitvoice [-data <dir>] [-addr <host:port>] <command> [flags]
 
 Commands:
-  customer add   add a customer to the master data
-  invoice add    write a new invoice
-  serve          serve the web UI
-  help           show this text
+  customer add    add a customer to the master data
+  customer list   list the customers with their IDs
+  invoice add     write a new invoice
+  serve           serve the web UI
+  help            show this text
 
 Run "gitvoice <command> -h" for the flags of a command.
 `
@@ -92,10 +94,16 @@ func (r Runner) dispatch(args []string) error {
 }
 
 func (r Runner) customer(args []string) error {
-	if len(args) == 0 || args[0] != "add" {
-		return usageError{errors.New("usage: gitvoice customer add [flags]")}
+	if len(args) == 0 {
+		return usageError{errors.New("usage: gitvoice customer <add|list> [flags]")}
 	}
-	return r.customerAdd(args[1:])
+	switch args[0] {
+	case "add":
+		return r.customerAdd(args[1:])
+	case "list":
+		return r.customerList(args[1:])
+	}
+	return usageError{fmt.Errorf("unknown customer command %q, want add or list", args[0])}
 }
 
 func (r Runner) invoice(args []string) error {
@@ -116,11 +124,11 @@ func (r Runner) serve(args []string) error {
 }
 
 // customerAdd writes a new entry to the customer master data. Invoices copy
-// these fields at creation time.
+// these fields at creation time. There is no -id flag: the service derives
+// the ID from the name and the command reports the one it stored.
 func (r Runner) customerAdd(args []string) error {
 	fs := r.flagSet("customer add")
 	var c customer.Customer
-	fs.StringVar(&c.ID, "id", "", "identifier and file name, derived from the name when empty")
 	fs.StringVar(&c.Company, "company", "", "company name")
 	fs.StringVar(&c.FirstName, "first-name", "", "given name")
 	fs.StringVar(&c.LastName, "last-name", "", "family name")
@@ -140,6 +148,28 @@ func (r Runner) customerAdd(args []string) error {
 	}
 	fmt.Fprintf(r.Out, "customer %s created\n", stored.ID)
 	return nil
+}
+
+// customerList prints the master data as a table, sorted by name. It is how
+// you look up the IDs that "invoice add -customer" expects.
+func (r Runner) customerList(args []string) error {
+	if err := parse(r.flagSet("customer list"), args); err != nil {
+		return err
+	}
+	customers, err := r.Svc.Customers()
+	if err != nil {
+		return err
+	}
+	if len(customers) == 0 {
+		fmt.Fprintln(r.Out, "no customers yet")
+		return nil
+	}
+	w := tabwriter.NewWriter(r.Out, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "ID\tCOMPANY\tNAME\tEMAIL")
+	for _, c := range customers {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", c.ID, c.Company, c.PersonName(), c.Email)
+	}
+	return w.Flush()
 }
 
 // invoiceAdd writes a new invoice. Tax defaults come from the company

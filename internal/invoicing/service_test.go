@@ -32,8 +32,10 @@ func testInvoice(number string) invoice.Invoice {
 	}
 }
 
-func testCustomer(id string) customer.Customer {
-	return customer.Customer{ID: id, Company: "ACME GmbH"}
+// testCustomer names a customer; the service derives the id from the name,
+// so callers look the record up under customer.SlugID(company).
+func testCustomer(company string) customer.Customer {
+	return customer.Customer{Company: company}
 }
 
 func TestNewDraftDefaultsToVAT(t *testing.T) {
@@ -143,79 +145,6 @@ func TestDeleteInvoiceMissing(t *testing.T) {
 	}
 }
 
-func TestCreateCustomerRejectsDuplicate(t *testing.T) {
-	svc := newTestService(t)
-	if _, err := svc.CreateCustomer(testCustomer("acme")); err != nil {
-		t.Fatal(err)
-	}
-	_, err := svc.CreateCustomer(testCustomer("acme"))
-	if !errors.Is(err, ErrExists) {
-		t.Fatalf("duplicate create: err = %v, want ErrExists", err)
-	}
-}
-
-func TestUpdateCustomerRenameDropsOld(t *testing.T) {
-	svc := newTestService(t)
-	if _, err := svc.CreateCustomer(testCustomer("acme")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := svc.UpdateCustomer("acme", testCustomer("acme-ag")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := svc.Customer("acme"); !errors.Is(err, ErrNotFound) {
-		t.Errorf("old id still resolves: %v", err)
-	}
-	if _, err := svc.Customer("acme-ag"); err != nil {
-		t.Errorf("new id missing: %v", err)
-	}
-}
-
-func TestUpdateCustomerRenameOntoTakenIDKeepsBoth(t *testing.T) {
-	svc := newTestService(t)
-	if _, err := svc.CreateCustomer(testCustomer("acme")); err != nil {
-		t.Fatal(err)
-	}
-	victim := customer.Customer{ID: "acme-ag", Company: "ACME AG"}
-	if _, err := svc.CreateCustomer(victim); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := svc.UpdateCustomer("acme", testCustomer("acme-ag")); !errors.Is(err, ErrExists) {
-		t.Fatalf("rename onto a taken id: err = %v, want ErrExists", err)
-	}
-	if _, err := svc.Customer("acme"); err != nil {
-		t.Errorf("renamed customer was dropped: %v", err)
-	}
-	got, err := svc.Customer("acme-ag")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != victim {
-		t.Errorf("customer acme-ag was overwritten: %+v, want %+v", got, victim)
-	}
-}
-
-func TestUpdateCustomerKeepsIDWhenCleared(t *testing.T) {
-	svc := newTestService(t)
-	if _, err := svc.CreateCustomer(testCustomer("acme")); err != nil {
-		t.Fatal(err)
-	}
-	stored, err := svc.UpdateCustomer("acme", customer.Customer{Company: "ACME AG"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stored.ID != "acme" {
-		t.Errorf("id = %q, want the current one kept", stored.ID)
-	}
-	got, err := svc.Customer("acme")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Company != "ACME AG" {
-		t.Errorf("company = %q, want the edit applied", got.Company)
-	}
-}
-
 func TestCreateCustomerDerivesID(t *testing.T) {
 	svc := newTestService(t)
 	tests := []struct {
@@ -254,28 +183,6 @@ func TestCreateCustomerNumbersDerivedIDOnCollision(t *testing.T) {
 			t.Errorf("create %d: id = %q, want %q", i, stored.ID, want)
 		}
 	}
-	// The counter must not reuse an id a manual entry already occupies.
-	if _, err := svc.CreateCustomer(customer.Customer{ID: "acme-gmbh-4", Company: "ACME GmbH"}); err != nil {
-		t.Fatal(err)
-	}
-	stored, err := svc.CreateCustomer(customer.Customer{Company: "ACME GmbH"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stored.ID != "acme-gmbh-5" {
-		t.Errorf("id = %q, want acme-gmbh-5", stored.ID)
-	}
-}
-
-func TestCreateCustomerGivenIDWins(t *testing.T) {
-	svc := newTestService(t)
-	stored, err := svc.CreateCustomer(customer.Customer{ID: "big-client", Company: "ACME GmbH"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stored.ID != "big-client" {
-		t.Errorf("id = %q, want the given one", stored.ID)
-	}
 }
 
 func TestCreateCustomerReportsUnusableName(t *testing.T) {
@@ -285,13 +192,84 @@ func TestCreateCustomerReportsUnusableName(t *testing.T) {
 		t.Fatal("a name yielding no id was accepted")
 	}
 	if !strings.Contains(err.Error(), "cannot derive an id") {
-		t.Errorf("err = %v, want it to ask for an explicit id", err)
+		t.Errorf("err = %v, want it to name the unusable name", err)
+	}
+}
+
+func TestCreateCustomerIgnoresGivenID(t *testing.T) {
+	svc := newTestService(t)
+	stored, err := svc.CreateCustomer(customer.Customer{ID: "hand-picked", Company: "ACME GmbH"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.ID != "acme-gmbh" {
+		t.Fatalf("id = %q, want the derived one", stored.ID)
+	}
+	if _, err := svc.Customer("hand-picked"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("the given id was honoured after all: %v", err)
+	}
+}
+
+// The ID is assigned once and never moves, so an edit cannot rename a
+// customer's file — and with that, cannot overwrite another customer.
+func TestUpdateCustomerKeepsIDAndCannotOverwrite(t *testing.T) {
+	svc := newTestService(t)
+	if _, err := svc.CreateCustomer(testCustomer("ACME GmbH")); err != nil {
+		t.Fatal(err)
+	}
+	victim := customer.Customer{Company: "Other GmbH", Email: "other@example.com"}
+	if _, err := svc.CreateCustomer(victim); err != nil {
+		t.Fatal(err)
+	}
+
+	stored, err := svc.UpdateCustomer("acme-gmbh", customer.Customer{ID: "other-gmbh", Company: "ACME AG"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.ID != "acme-gmbh" {
+		t.Errorf("id = %q, want it unchanged", stored.ID)
+	}
+	got, err := svc.Customer("acme-gmbh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Company != "ACME AG" {
+		t.Errorf("company = %q, want the edit applied", got.Company)
+	}
+	other, err := svc.Customer("other-gmbh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if other.Company != "Other GmbH" || other.Email != "other@example.com" {
+		t.Errorf("customer other-gmbh was overwritten: %+v", other)
+	}
+}
+
+// A renamed company keeps its ID: the ID is the file name, and rewriting it
+// on every name correction would churn the git history.
+func TestUpdateCustomerKeepsIDWhenNameChanges(t *testing.T) {
+	svc := newTestService(t)
+	if _, err := svc.CreateCustomer(testCustomer("ACME GmbH")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.UpdateCustomer("acme-gmbh", customer.Customer{Company: "Globex GmbH"}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := svc.Customer("acme-gmbh")
+	if err != nil {
+		t.Fatalf("customer moved away from its id: %v", err)
+	}
+	if got.Company != "Globex GmbH" {
+		t.Errorf("company = %q, want the new name", got.Company)
+	}
+	if _, err := svc.Customer("globex-gmbh"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("a second file appeared under the new name: %v", err)
 	}
 }
 
 func TestUpdateCustomerMissing(t *testing.T) {
 	svc := newTestService(t)
-	_, err := svc.UpdateCustomer("nope", testCustomer("nope"))
+	_, err := svc.UpdateCustomer("nope", testCustomer("ACME GmbH"))
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
@@ -300,14 +278,14 @@ func TestUpdateCustomerMissing(t *testing.T) {
 func TestCustomerSnapshotCopiesPrintedFieldsOnly(t *testing.T) {
 	svc := newTestService(t)
 	c := customer.Customer{
-		ID: "acme", Company: "ACME GmbH", FirstName: "Max", LastName: "Muster",
+		Company: "ACME GmbH", FirstName: "Max", LastName: "Muster",
 		Address: "Musterstraße 1", Email: "billing@acme.example",
 		Phone: "+49 30 123456", VATID: "DE123456789", Notes: "prefers email",
 	}
 	if _, err := svc.CreateCustomer(c); err != nil {
 		t.Fatal(err)
 	}
-	got, err := svc.CustomerSnapshot("acme")
+	got, err := svc.CustomerSnapshot("acme-gmbh")
 	if err != nil {
 		t.Fatal(err)
 	}
