@@ -51,7 +51,7 @@ func (s *Server) handleCustomerEditForm(w http.ResponseWriter, r *http.Request) 
 func (s *Server) handleCustomerCreate(w http.ResponseWriter, r *http.Request) {
 	c, err := parseCustomerForm(r)
 	if err == nil {
-		err = s.svc.CreateCustomer(c)
+		_, err = s.svc.CreateCustomer(c)
 	}
 	if err != nil {
 		s.render(w, r, "customer_form.html", customerFormData(c, true, "/customers", err.Error()))
@@ -61,17 +61,20 @@ func (s *Server) handleCustomerCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCustomerUpdate(w http.ResponseWriter, r *http.Request) {
-	oldID := r.PathValue("id")
+	id := r.PathValue("id")
 	c, err := parseCustomerForm(r)
+	// The form carries no ID; fill it in so a re-render on error still shows
+	// which customer is being edited.
+	c.ID = id
 	if err == nil {
-		err = s.svc.UpdateCustomer(oldID, c)
+		_, err = s.svc.UpdateCustomer(id, c)
 	}
 	if errors.Is(err, invoicing.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}
 	if err != nil {
-		s.render(w, r, "customer_form.html", customerFormData(c, false, "/customers/"+url.PathEscape(oldID), err.Error()))
+		s.render(w, r, "customer_form.html", customerFormData(c, false, "/customers/"+url.PathEscape(id), err.Error()))
 		return
 	}
 	http.Redirect(w, r, "/customers", http.StatusSeeOther)
@@ -90,12 +93,14 @@ func (s *Server) handleCustomerDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/customers", http.StatusSeeOther)
 }
 
+// parseCustomerForm reads the posted fields. The ID is not among them: it is
+// derived on create and fixed afterwards, so the form never carries one.
+// Validation is left to the service, which knows the ID it assigned.
 func parseCustomerForm(r *http.Request) (customer.Customer, error) {
 	if err := r.ParseForm(); err != nil {
 		return customer.Customer{}, fmt.Errorf("parse form: %w", err)
 	}
 	c := customer.Customer{
-		ID:        strings.TrimSpace(r.PostFormValue("id")),
 		Company:   strings.TrimSpace(r.PostFormValue("company")),
 		FirstName: strings.TrimSpace(r.PostFormValue("first_name")),
 		LastName:  strings.TrimSpace(r.PostFormValue("last_name")),
@@ -105,5 +110,5 @@ func parseCustomerForm(r *http.Request) (customer.Customer, error) {
 		VATID:     strings.TrimSpace(r.PostFormValue("vat_id")),
 		Notes:     strings.TrimSpace(r.PostFormValue("notes")),
 	}
-	return c, c.Validate()
+	return c, nil
 }
