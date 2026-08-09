@@ -63,14 +63,15 @@ same data directory, same rules, same JSON files.
 ```sh
 go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice help
 
-# add a customer to the master data
+# add a customer to the master data — prints the ID it derived
 go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice customer add \
-  -id acme -company "ACME GmbH" \
+  -company "ACME GmbH" \
   -address 'Musterstraße 1\n12345 Berlin' -vat-id DE123456789
+# customer acme-gmbh created
 
 # write an invoice for that customer
 go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice invoice add \
-  -number 2026-001 -customer acme -due-date 2026-08-23 \
+  -number 2026-001 -customer acme-gmbh -due-date 2026-08-23 \
   -item 'Consulting;3;120.00' -item 'Travel;1;49,50'
 
 # serve the web UI
@@ -83,6 +84,8 @@ go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice serve
   quantity and price are read from the end, so a description may contain `;`.
 - `-customer <id>` copies the recipient from the master data; the
   `-customer-*` flags fill in or override single fields, as in the web form.
+- `customer add` derives the ID from the name when `-id` is omitted, and
+  prints the ID it stored.
 - Date, currency, VAT rate and the small-business rule default exactly like a
   new invoice in the UI: from today's date and your company profile.
 - `\n` in `-address` and `-notes` becomes a real line break.
@@ -112,7 +115,9 @@ To get the same commands from your own binary, call
   VAT ID, and internal notes. Manage customers once, then pick them from a
   select when writing an invoice. The invoice stores its own copy of the
   customer data, so editing or deleting a customer never changes existing
-  invoices
+  invoices. The ID (and with it the filename) is derived from the name when
+  you leave it empty — "Müller & Söhne GmbH" becomes `mueller-soehne-gmbh`,
+  numbered when that is taken — and can still be set by hand
 - Line items with quantity and unit price; totals are computed
 - PDF export: "Save PDF" renders the invoice and files it under
   `<DataDir>/pdfs/<number>.pdf` (and downloads it). A print-friendly view is

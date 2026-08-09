@@ -8,7 +8,7 @@
   <fieldset>
     <legend>{{t .Lang "form.legend_customer"}}</legend>
     <div class="grid">
-      <label>{{t .Lang "customer_form.id"}} <input name="id" value="{{.Customer.ID}}" required></label>
+      <label>{{t .Lang "customer_form.id"}} <input name="id" value="{{.Customer.ID}}"></label>
       <label>{{t .Lang "form.company"}} <input name="company" value="{{.Customer.Company}}"></label>
     </div>
     <div class="grid">
@@ -16,6 +16,7 @@
       <label>{{t .Lang "form.last_name"}} <input name="last_name" value="{{.Customer.LastName}}"></label>
     </div>
     <p class="hint">{{t .Lang "form.name_hint"}}</p>
+    <p class="hint">{{if .IsNew}}{{t .Lang "customer_form.id_hint_new"}}{{else}}{{t .Lang "customer_form.id_hint_edit"}}{{end}}</p>
   </fieldset>
 
   <fieldset>

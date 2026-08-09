@@ -80,6 +80,8 @@ func (s *Service) CreateInvoice(inv invoice.Invoice) error {
 
 // UpdateInvoice replaces the invoice stored under oldNumber. The number
 // doubles as the filename: a rename saves the new file and drops the old.
+// Renaming onto a number that is already taken returns ErrExists rather than
+// overwriting the invoice sitting there.
 func (s *Service) UpdateInvoice(oldNumber string, inv invoice.Invoice) error {
 	exists, err := s.store.Exists(oldNumber)
 	if err != nil {
@@ -87,6 +89,15 @@ func (s *Service) UpdateInvoice(oldNumber string, inv invoice.Invoice) error {
 	}
 	if !exists {
 		return fmt.Errorf("%w: invoice %s", ErrNotFound, oldNumber)
+	}
+	if inv.Number != oldNumber {
+		taken, err := s.store.Exists(inv.Number)
+		if err != nil {
+			return err
+		}
+		if taken {
+			return fmt.Errorf("invoice %s: %w", inv.Number, ErrExists)
+		}
 	}
 	if err := s.store.Save(inv); err != nil {
 		return err
@@ -154,40 +165,105 @@ func (s *Service) Customers() ([]customer.Customer, error) {
 	return s.store.ListCustomers()
 }
 
-// CreateCustomer validates and saves a new customer; the ID must be free.
-func (s *Service) CreateCustomer(c customer.Customer) error {
+// maxIDAttempts bounds the walk to a free derived ID. Reaching it means a
+// hundred customers share one name, which is a data problem, not a retry.
+const maxIDAttempts = 100
+
+// CreateCustomer validates and saves a new customer and returns the stored
+// record, whose ID the caller needs to report or link to.
+//
+// An empty ID is derived from the customer's name ("ACME GmbH" becomes
+// "acme-gmbh"), with a counter appended while that ID is taken. A given ID
+// is used as-is and must be free.
+func (s *Service) CreateCustomer(c customer.Customer) (customer.Customer, error) {
+	if c.ID == "" {
+		// Without a name there is no id to derive, and reporting the empty
+		// id on top of the missing name would only point at the wrong field.
+		if c.DisplayName() == "" {
+			return customer.Customer{}, customer.ErrNoName
+		}
+		id, err := s.freeCustomerID(customer.SlugID(c.DisplayName()))
+		if err != nil {
+			return customer.Customer{}, err
+		}
+		if id == "" {
+			return customer.Customer{}, fmt.Errorf("cannot derive an id from %q, please enter one", c.DisplayName())
+		}
+		c.ID = id
+	}
 	if err := c.Validate(); err != nil {
-		return err
+		return customer.Customer{}, err
 	}
 	exists, err := s.store.CustomerExists(c.ID)
 	if err != nil {
-		return err
+		return customer.Customer{}, err
 	}
 	if exists {
-		return fmt.Errorf("customer %s: %w", c.ID, ErrExists)
-	}
-	return s.store.SaveCustomer(c)
-}
-
-// UpdateCustomer replaces the customer stored under oldID. The ID doubles
-// as the filename: a rename saves the new file and drops the old.
-func (s *Service) UpdateCustomer(oldID string, c customer.Customer) error {
-	exists, err := s.store.CustomerExists(oldID)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return fmt.Errorf("%w: customer %s", ErrNotFound, oldID)
+		return customer.Customer{}, fmt.Errorf("customer %s: %w", c.ID, ErrExists)
 	}
 	if err := s.store.SaveCustomer(c); err != nil {
-		return err
+		return customer.Customer{}, err
+	}
+	return c, nil
+}
+
+// freeCustomerID returns base, or base-2, base-3, … for the first one no
+// customer occupies. An empty base stays empty: validation reports the
+// missing name, which is the actual problem.
+func (s *Service) freeCustomerID(base string) (string, error) {
+	if base == "" {
+		return "", nil
+	}
+	for n := 1; n <= maxIDAttempts; n++ {
+		id := customer.NumberedID(base, n)
+		exists, err := s.store.CustomerExists(id)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return id, nil
+		}
+	}
+	return "", fmt.Errorf("no free customer id derived from %q after %d attempts", base, maxIDAttempts)
+}
+
+// UpdateCustomer replaces the customer stored under oldID and returns the
+// stored record. The ID doubles as the filename: a rename saves the new file
+// and drops the old, and renaming onto a taken ID returns ErrExists rather
+// than overwriting the customer sitting there.
+//
+// An empty ID keeps oldID. Unlike on create there is a current ID to fall
+// back to, and silently renaming the file because a field was cleared would
+// be the more surprising answer.
+func (s *Service) UpdateCustomer(oldID string, c customer.Customer) (customer.Customer, error) {
+	exists, err := s.store.CustomerExists(oldID)
+	if err != nil {
+		return customer.Customer{}, err
+	}
+	if !exists {
+		return customer.Customer{}, fmt.Errorf("%w: customer %s", ErrNotFound, oldID)
+	}
+	if c.ID == "" {
+		c.ID = oldID
+	}
+	if c.ID != oldID {
+		taken, err := s.store.CustomerExists(c.ID)
+		if err != nil {
+			return customer.Customer{}, err
+		}
+		if taken {
+			return customer.Customer{}, fmt.Errorf("customer %s: %w", c.ID, ErrExists)
+		}
+	}
+	if err := s.store.SaveCustomer(c); err != nil {
+		return customer.Customer{}, err
 	}
 	if c.ID != oldID {
 		if err := s.store.DeleteCustomer(oldID); err != nil && !errors.Is(err, ErrNotFound) {
-			return err
+			return customer.Customer{}, err
 		}
 	}
-	return nil
+	return c, nil
 }
 
 // DeleteCustomer removes a customer; invoices keep their data snapshot.

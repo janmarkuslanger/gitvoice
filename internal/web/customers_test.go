@@ -89,6 +89,82 @@ func TestCustomerRename(t *testing.T) {
 	}
 }
 
+func TestCustomerCreateDerivesIDFromCompany(t *testing.T) {
+	srv := newTestServer(t)
+	form := customerForm()
+	form.Set("id", "")
+	form.Set("company", "Müller & Söhne GmbH")
+	if rec := postForm(t, srv, "/customers", form); rec.Code != http.StatusSeeOther {
+		t.Fatalf("create: status = %d, body: %s", rec.Code, rec.Body.String())
+	}
+	if rec := get(t, srv, "/customers/mueller-soehne-gmbh/edit"); rec.Code != http.StatusOK {
+		t.Fatalf("derived id not reachable: %d", rec.Code)
+	}
+	if body := get(t, srv, "/customers").Body.String(); !strings.Contains(body, "mueller-soehne-gmbh") {
+		t.Error("derived id not listed")
+	}
+}
+
+func TestCustomerUpdateKeepsIDWhenCleared(t *testing.T) {
+	srv := newTestServer(t)
+	postForm(t, srv, "/customers", customerForm())
+	form := customerForm()
+	form.Set("id", "")
+	form.Set("company", "ACME AG")
+	if rec := postForm(t, srv, "/customers/acme", form); rec.Code != http.StatusSeeOther {
+		t.Fatalf("update: status = %d, body: %s", rec.Code, rec.Body.String())
+	}
+	body := get(t, srv, "/customers/acme/edit").Body.String()
+	if !strings.Contains(body, "ACME AG") {
+		t.Error("edit not applied under the unchanged id")
+	}
+}
+
+func TestCustomerRenameOntoTakenIDRejected(t *testing.T) {
+	srv := newTestServer(t)
+	postForm(t, srv, "/customers", customerForm())
+	other := customerForm()
+	other.Set("id", "acme-ag")
+	other.Set("company", "ACME AG")
+	postForm(t, srv, "/customers", other)
+
+	form := customerForm()
+	form.Set("id", "acme-ag")
+	rec := postForm(t, srv, "/customers/acme", form)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "already exists") {
+		t.Fatalf("rename onto a taken id: status = %d, body: %s", rec.Code, rec.Body.String())
+	}
+	// Neither customer may have been lost or overwritten.
+	if rec := get(t, srv, "/customers/acme/edit"); rec.Code != http.StatusOK {
+		t.Errorf("renamed customer was dropped: %d", rec.Code)
+	}
+	if body := get(t, srv, "/customers/acme-ag/edit").Body.String(); !strings.Contains(body, "ACME AG") {
+		t.Error("customer acme-ag was overwritten")
+	}
+}
+
+func TestInvoiceRenameOntoTakenNumberRejected(t *testing.T) {
+	srv := newTestServer(t)
+	postForm(t, srv, "/invoices", createForm())
+	other := createForm()
+	other.Set("number", "2026-002")
+	other.Set("customer_company", "Other GmbH")
+	postForm(t, srv, "/invoices", other)
+
+	form := createForm()
+	form.Set("number", "2026-002")
+	rec := postForm(t, srv, "/invoices/2026-001", form)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "already exists") {
+		t.Fatalf("rename onto a taken number: status = %d, body: %s", rec.Code, rec.Body.String())
+	}
+	if rec := get(t, srv, "/invoices/2026-001"); rec.Code != http.StatusOK {
+		t.Errorf("renamed invoice was dropped: %d", rec.Code)
+	}
+	if body := get(t, srv, "/invoices/2026-002").Body.String(); !strings.Contains(body, "Other GmbH") {
+		t.Error("invoice 2026-002 was overwritten")
+	}
+}
+
 func TestInvoiceFormOffersCustomerSelect(t *testing.T) {
 	srv := newTestServer(t)
 

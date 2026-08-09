@@ -115,12 +115,12 @@ func (r Runner) serve(args []string) error {
 	return r.Serve()
 }
 
-// customerAdd writes a new entry to the customer master data. The ID must be
-// free; invoices copy these fields at creation time.
+// customerAdd writes a new entry to the customer master data. Invoices copy
+// these fields at creation time.
 func (r Runner) customerAdd(args []string) error {
 	fs := r.flagSet("customer add")
 	var c customer.Customer
-	fs.StringVar(&c.ID, "id", "", "identifier, doubles as the file name (required)")
+	fs.StringVar(&c.ID, "id", "", "identifier and file name, derived from the name when empty")
 	fs.StringVar(&c.Company, "company", "", "company name")
 	fs.StringVar(&c.FirstName, "first-name", "", "given name")
 	fs.StringVar(&c.LastName, "last-name", "", "family name")
@@ -134,10 +134,11 @@ func (r Runner) customerAdd(args []string) error {
 	}
 	c.Address = unescapeNewlines(c.Address)
 	c.Notes = unescapeNewlines(c.Notes)
-	if err := r.Svc.CreateCustomer(c); err != nil {
+	stored, err := r.Svc.CreateCustomer(c)
+	if err != nil {
 		return err
 	}
-	fmt.Fprintf(r.Out, "customer %s created\n", c.ID)
+	fmt.Fprintf(r.Out, "customer %s created\n", stored.ID)
 	return nil
 }
 

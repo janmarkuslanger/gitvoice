@@ -77,12 +77,43 @@ func TestCustomerAdd(t *testing.T) {
 	}
 }
 
-func TestCustomerAddRejectsInvalid(t *testing.T) {
-	res := run(t, "customer", "add", "-company", "ACME GmbH")
+func TestCustomerAddDerivesIDFromCompany(t *testing.T) {
+	res := run(t, "customer", "add", "-company", "Müller & Söhne GmbH")
+	if res.code != 0 {
+		t.Fatalf("exit = %d, stderr: %s", res.code, res.err)
+	}
+	if !strings.Contains(res.out, "customer mueller-soehne-gmbh created") {
+		t.Errorf("stdout = %q, want the derived id", res.out)
+	}
+	if _, err := res.svc.Customer("mueller-soehne-gmbh"); err != nil {
+		t.Errorf("derived id not stored: %v", err)
+	}
+}
+
+func TestCustomerAddNumbersDerivedIDOnCollision(t *testing.T) {
+	r, svc, out, errOut := newRunner(t)
+	for i := 0; i < 2; i++ {
+		if code := runOn(r, "customer", "add", "-company", "ACME GmbH"); code != 0 {
+			t.Fatalf("add %d: exit = %d, stderr: %s", i, code, errOut.String())
+		}
+	}
+	if !strings.Contains(out.String(), "customer acme-gmbh created") ||
+		!strings.Contains(out.String(), "customer acme-gmbh-2 created") {
+		t.Errorf("stdout = %q, want acme-gmbh and acme-gmbh-2", out.String())
+	}
+	for _, id := range []string{"acme-gmbh", "acme-gmbh-2"} {
+		if _, err := svc.Customer(id); err != nil {
+			t.Errorf("customer %s missing: %v", id, err)
+		}
+	}
+}
+
+func TestCustomerAddRejectsMissingName(t *testing.T) {
+	res := run(t, "customer", "add", "-email", "billing@acme.example")
 	if res.code != 1 {
 		t.Fatalf("exit = %d, want 1", res.code)
 	}
-	if !strings.Contains(res.err, "id is required") {
+	if !strings.Contains(res.err, "company or last name is required") {
 		t.Errorf("stderr = %q, want the validation message", res.err)
 	}
 }
@@ -102,7 +133,7 @@ func TestCustomerAddRejectsDuplicate(t *testing.T) {
 
 func TestInvoiceAddCopiesCustomerAndDefaults(t *testing.T) {
 	r, svc, out, errOut := newRunner(t)
-	if err := svc.CreateCustomer(customer.Customer{
+	if _, err := svc.CreateCustomer(customer.Customer{
 		ID: "acme", Company: "ACME GmbH", Address: "Musterstraße 1", VATID: "DE123456789",
 		Phone: "+49 30 123456", Notes: "internal",
 	}); err != nil {
@@ -194,7 +225,7 @@ func TestInvoiceAddWithoutMasterData(t *testing.T) {
 
 func TestInvoiceAddOverridesLoadedCustomer(t *testing.T) {
 	r, svc, _, errOut := newRunner(t)
-	if err := svc.CreateCustomer(customer.Customer{ID: "acme", Company: "ACME GmbH", Email: "old@acme.example"}); err != nil {
+	if _, err := svc.CreateCustomer(customer.Customer{ID: "acme", Company: "ACME GmbH", Email: "old@acme.example"}); err != nil {
 		t.Fatal(err)
 	}
 	code := runOn(r, "invoice", "add",
