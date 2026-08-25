@@ -24,7 +24,14 @@ type result struct {
 
 func newRunner(t *testing.T) (Runner, *invoicing.Service, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
-	st, err := store.New(t.TempDir())
+	return newRunnerIn(t, t.TempDir())
+}
+
+// newRunnerIn returns a runner over dir, for tests that inspect the files it
+// writes there.
+func newRunnerIn(t *testing.T, dir string) (Runner, *invoicing.Service, *bytes.Buffer, *bytes.Buffer) {
+	t.Helper()
+	st, err := store.New(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -386,7 +393,10 @@ func TestUsageErrors(t *testing.T) {
 		{"unknown command", []string{"nope"}, `unknown command "nope"`},
 		{"unknown subcommand", []string{"customer", "remove"}, `unknown customer command "remove"`},
 		{"missing customer subcommand", []string{"customer"}, "usage: gitvoice customer <add|list>"},
-		{"missing subcommand", []string{"invoice"}, "usage: gitvoice invoice add"},
+		{"missing subcommand", []string{"invoice"}, "usage: gitvoice invoice <add|list|show|pdf>"},
+		{"unknown invoice subcommand", []string{"invoice", "remove"}, `unknown invoice command "remove"`},
+		{"missing invoice number", []string{"invoice", "show"}, "usage: gitvoice invoice show [flags] <number>"},
+		{"number and stray flag order", []string{"invoice", "show", "2026-001", "-json"}, "usage: gitvoice invoice show [flags] <number>"},
 		{"unknown flag", []string{"customer", "add", "-nope"}, "not defined"},
 		{"id is not a flag", []string{"customer", "add", "-id", "acme"}, "not defined"},
 		{"stray argument", []string{"customer", "list", "acme"}, `unexpected argument "acme"`},
@@ -409,7 +419,11 @@ func TestHelp(t *testing.T) {
 	if res.code != 0 {
 		t.Fatalf("exit = %d, want 0", res.code)
 	}
-	for _, want := range []string{"customer add", "customer list", "invoice add", "serve"} {
+	for _, want := range []string{
+		"customer add", "customer list",
+		"invoice add", "invoice list", "invoice show", "invoice pdf",
+		"serve", "-json",
+	} {
 		if !strings.Contains(res.out, want) {
 			t.Errorf("help does not mention %q", want)
 		}
