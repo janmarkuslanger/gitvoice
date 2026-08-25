@@ -395,6 +395,8 @@ func TestUsageErrors(t *testing.T) {
 		{"missing customer subcommand", []string{"customer"}, "usage: gitvoice customer <add|list>"},
 		{"missing subcommand", []string{"invoice"}, "usage: gitvoice invoice <add|list|show|pdf>"},
 		{"unknown invoice subcommand", []string{"invoice", "remove"}, `unknown invoice command "remove"`},
+		{"missing company subcommand", []string{"company"}, "usage: gitvoice company <show|set>"},
+		{"unknown company subcommand", []string{"company", "reset"}, `unknown company command "reset"`},
 		{"missing invoice number", []string{"invoice", "show"}, "usage: gitvoice invoice show [flags] <number>"},
 		{"number and stray flag order", []string{"invoice", "show", "2026-001", "-json"}, "usage: gitvoice invoice show [flags] <number>"},
 		{"unknown flag", []string{"customer", "add", "-nope"}, "not defined"},
@@ -422,7 +424,7 @@ func TestHelp(t *testing.T) {
 	for _, want := range []string{
 		"customer add", "customer list",
 		"invoice add", "invoice list", "invoice show", "invoice pdf",
-		"serve", "-json",
+		"company show", "company set", "serve", "-json",
 	} {
 		if !strings.Contains(res.out, want) {
 			t.Errorf("help does not mention %q", want)

@@ -32,6 +32,8 @@ Commands:
   invoice list    list the invoices with their totals
   invoice show    print one invoice
   invoice pdf     render an invoice to PDF
+  company show    print the issuer profile
+  company set     fill in the issuer profile
   serve           serve the web UI
   help            show this text
 
@@ -87,6 +89,8 @@ func (r Runner) dispatch(args []string) error {
 		return r.customer(args[1:])
 	case "invoice":
 		return r.invoice(args[1:])
+	case "company":
+		return r.company(args[1:])
 	case "serve":
 		return r.serve(args[1:])
 	case "help", "-h", "-help", "--help":
