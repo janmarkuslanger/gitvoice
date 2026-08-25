@@ -1,11 +1,16 @@
 // Command gitvoice is the standalone command line. Run it inside your
-// invoice repository to add customers and invoices, or to serve the web UI:
+// invoice repository to fill in your issuer profile, add customers and
+// invoices, render PDFs, or serve the web UI:
 //
-//	go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice customer add -id acme -company "ACME GmbH"
-//	go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice invoice add -number 2026-001 -customer acme -item "Consulting;3;120.00"
+//	go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice company set -company "Studio Muster" -tax-number 12/345/67890
+//	go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice customer add -company "ACME GmbH"
+//	go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice invoice add -number 2026-001 -customer acme-gmbh -item "Consulting;3;120.00"
+//	go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice invoice pdf 2026-001
 //	go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice serve
 //
-// The global flags below come before the command name.
+// The reading commands take -json, so scripts and agents do not have to
+// scrape the table output. The global flags below come before the command
+// name.
 package main
 
 import (
