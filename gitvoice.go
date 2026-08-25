@@ -94,9 +94,11 @@ func Run(cfg Config) error {
 	return app.Run()
 }
 
-// CLI runs one command line ("customer add …", "invoice add …", "serve")
-// against the app's data directory and returns the process exit code:
-// 0 on success, 1 when the command failed, 2 when it was invoked wrongly.
+// CLI runs one command line ("company set …", "customer add …",
+// "invoice add …", "invoice pdf …", "serve") against the app's data
+// directory and returns the process exit code: 0 on success, 1 when the
+// command failed, 2 when it was invoked wrongly. See CLIUsage for the full
+// command list.
 func (a *App) CLI(args []string, out, errOut io.Writer) int {
 	return cli.Runner{Svc: a.svc, Serve: a.Run, Out: out, Err: errOut}.Run(args)
 }

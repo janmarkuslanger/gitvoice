@@ -26,3 +26,10 @@ func (s *Store) SavePDF(number string, data []byte) error {
 	}
 	return nil
 }
+
+// PDFPath returns the file the rendered PDF for number is filed under,
+// whether or not it has been rendered yet, so callers can report it.
+// Numbers that are unsafe as a filename are rejected.
+func (s *Store) PDFPath(number string) (string, error) {
+	return s.pdfPath(number)
+}

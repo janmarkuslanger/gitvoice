@@ -1,6 +1,6 @@
 // Package invoicing implements the application use cases over the store:
 // drafts with profile defaults, create with uniqueness checks, rename-aware
-// updates. Frontends (the web UI, a future CLI) call this instead of the
+// updates. Frontends (the web UI, the command line) call this instead of the
 // store, so the rules live in exactly one place.
 package invoicing
 
@@ -135,6 +135,12 @@ func (s *Service) GeneratePDF(number, lang string) ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+// PDFPath returns the file GeneratePDF writes the invoice to, so callers
+// that render a PDF can report where it landed.
+func (s *Service) PDFPath(number string) (string, error) {
+	return s.store.PDFPath(number)
 }
 
 // Customer loads a single customer by ID.

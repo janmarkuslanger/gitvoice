@@ -57,11 +57,18 @@ middleware, use `gitvoice.New(cfg)` and `app.Handler()`.
 
 ## Command line
 
-Everything the UI writes can also be written from a terminal or a script —
-same data directory, same rules, same JSON files.
+Everything the UI writes can also be written from a terminal, a script, or an
+agent — same data directory, same rules, same JSON files. The reading commands
+take `-json`, so a caller that is not a human does not have to scrape tables.
 
 ```sh
 go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice help
+
+# fill in the issuer profile — § 14 UStG needs most of it on every invoice
+go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice company set \
+  -company "Studio Muster" -address 'Hauptstraße 2\n10115 Berlin' \
+  -tax-number 12/345/67890 -iban DE02120300000000202051
+go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice company show
 
 # add a customer to the master data — prints the ID it derived
 go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice customer add \
@@ -75,7 +82,17 @@ go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice customer list
 # write an invoice for that customer
 go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice invoice add \
   -number 2026-001 -customer acme-gmbh -due-date 2026-08-23 \
+  -service-date 2026-08-07 \
   -item 'Consulting;3;120.00' -item 'Travel;1;49,50'
+# invoice 2026-001 created (487.31 EUR)
+
+# read it back, with totals and the completeness check
+go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice invoice list
+go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice invoice show 2026-001
+go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice invoice show -json 2026-001
+
+# render the PDF into <DataDir>/pdfs/
+go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice invoice pdf 2026-001
 
 # serve the web UI
 go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice serve
@@ -92,25 +109,52 @@ go run github.com/janmarkuslanger/gitvoice/cmd/gitvoice serve
   there is no flag to set one.
 - Date, currency, VAT rate and the small-business rule default exactly like a
   new invoice in the UI: from today's date and your company profile.
+- `company set` patches the profile: every flag defaults to what is stored,
+  so setting one field keeps the rest, and `-phone ""` clears one on purpose.
+- `invoice add` reports the mandatory details missing under § 14 UStG on
+  stderr and still writes the invoice — the check is advisory, the exit code
+  stays `0`. `invoice show` repeats it, `-json` lists it under `warnings`
+  with a stable `code` per detail.
+- `invoice pdf <number>` writes `<DataDir>/pdfs/<number>.pdf` and prints the
+  path. `-lang de|en` picks the label language; the default comes from the
+  profile.
+- `invoice show` and `invoice pdf` take the number as an argument, and flags
+  come before it (`invoice show -json 2026-001`).
 - `\n` in `-address` and `-notes` becomes a real line break.
 - Exit codes: `0` success, `1` the command failed, `2` wrong invocation.
 
 To get the same commands from your own binary, call
 `gitvoice.RunCLI(cfg, args, os.Stdout, os.Stderr)`.
 
+### Scripting and agents
+
+`invoice list -json`, `invoice show -json`, `customer list -json` and
+`company show -json` print the stored records; the invoice views add
+`net_cents`, `tax_cents`, `total_cents` and a `warnings` array of
+`{code, message}`. Fields may be added over time, so read them by name.
+
+```sh
+# the highest invoice number written so far, to pick the next one
+gitvoice invoice list -json | jq -r '[.[].number] | max'
+# every invoice that is still missing a mandatory detail
+gitvoice invoice list -json | jq -r 'map(select(.warnings != [])) | .[].number'
+```
+
 ## Features
 
 - Create, edit, and delete invoices in a plain, dependency-free web UI
   (embedded in the binary — no assets to deploy)
-- A command line for the same job: `customer add`, `customer list`,
-  `invoice add`, `serve` (see [Command line](#command-line))
-- Company profile (Settings page): name, address, Steuernummer, USt-IdNr.,
-  bank account — printed on every invoice as the issuer
+- A command line for the same job — `company set/show`, `customer add/list`,
+  `invoice add/list/show/pdf`, `serve` — with `-json` output for scripts and
+  agents (see [Command line](#command-line))
+- Company profile (Settings page or `company set`): name, address,
+  Steuernummer, USt-IdNr., bank account — printed on every invoice as the
+  issuer
 - VAT with a configurable rate per invoice (net / VAT / gross breakdown)
 - Time of supply (single date or period) per invoice, printed on the sheet
-- Non-blocking completeness check: the invoice view flags missing details
-  (issuer name/address, tax number or VAT ID, recipient address, time of
-  supply), with a reduced set for small-amount invoices
+- Non-blocking completeness check: the invoice view and the command line flag
+  missing details (issuer name/address, tax number or VAT ID, recipient
+  address, time of supply), with a reduced set for small-amount invoices
 - UI language switch (German / English) with a default in the profile
 - Small-business toggle: when enabled, new invoices default to no VAT and
   print a configurable note. The setting is snapshotted per invoice, so
@@ -124,9 +168,9 @@ To get the same commands from your own binary, call
   when that is taken. It is assigned once and stays fixed afterwards, even
   when the name changes, so the file keeps its place in the git history
 - Line items with quantity and unit price; totals are computed
-- PDF export: "Save PDF" renders the invoice and files it under
-  `<DataDir>/pdfs/<number>.pdf` (and downloads it). A print-friendly view is
-  also available via the browser's print dialog
+- PDF export: "Save PDF" (or `invoice pdf <number>`) renders the invoice and
+  files it under `<DataDir>/pdfs/<number>.pdf`. A print-friendly view is also
+  available via the browser's print dialog
 - Status tracking: draft, sent, paid, canceled
 
 ## Data format
